@@ -10,6 +10,7 @@ const {
   downloadChallansExcel,
   downloadChallansPdf,
   getChallansByCompany,
+  getNextChallanNumber
 } = require('../controllers/challanController');
 const { protect, isAdmin } = require('../middleware/authMiddleware');
 
@@ -20,6 +21,9 @@ router.use(isAdmin);
 router.route('/')
   .post(createChallan) // POST request to create a new challan
   .get(getChallans); // GET request to retrieve all challans
+
+ router.route('/next-number')
+  .get(getNextChallanNumber);
 
 router.route('/:id')
     .get(getChallanById) // GET request to retrieve a specific challan by ID

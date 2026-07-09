@@ -1,43 +1,43 @@
-// routes/debitNoteRoutes.js
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
+
 const {
+  getNextDebitNoteNumber,
+  getUnpaidPurchasesByCompany,
   createDebitNote,
   getDebitNotes,
   getDebitNoteById,
   updateDebitNote,
   deleteDebitNote,
-  generateDebitNoteExcel,
   generateDebitNotePdf,
-  getDebitNotesForBill,
-  checkBillCanHaveDebitNote,
 } = require('../controllers/debitNoteController');
+
 const { protect, isAdmin } = require('../middleware/authMiddleware');
 
 router.use(protect);
 router.use(isAdmin);
 
-// Debit Note routes
-router.route('/')
-  .post( createDebitNote)
-  .get(getDebitNotes);
+// ─────────────────────────────────────────────────────────────────────────────
+// IMPORTANT: Specific static routes MUST be declared before /:id dynamic routes
+// to prevent Express from matching "next-number" or "unpaid-purchases" as an id.
+// ─────────────────────────────────────────────────────────────────────────────
 
+// Preview / helper endpoints
+router.get('/next-number',      getNextDebitNoteNumber);
+router.get('/unpaid-purchases', getUnpaidPurchasesByCompany);
+
+// Collection
+router.route('/')
+  .get( getDebitNotes)
+  .post( createDebitNote);
+
+// Single document
 router.route('/:id')
   .get( getDebitNoteById)
   .put( updateDebitNote)
   .delete( deleteDebitNote);
 
-router.route('/:id/excel')
-  .get( generateDebitNoteExcel);
-
-router.route('/:id/pdf')
-  .get( generateDebitNotePdf);
-
-// Bill-related debit note routes
-router.route('/bills/:billId/debit-notes')
-  .get( getDebitNotesForBill);
-
-router.route('/bills/:billId/can-have-debit-note')
-  .get( checkBillCanHaveDebitNote);
+// PDF generation
+router.get('/:id/pdf',  generateDebitNotePdf);
 
 module.exports = router;

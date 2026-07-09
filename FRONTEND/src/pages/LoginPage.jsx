@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import AuthService from '../services/AuthService';
 import logo from '../assets/MAHADEV_FILAMENTS-01.png'; // Make sure the path is correct
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
@@ -17,8 +19,12 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      await AuthService.login(email, password);
-      navigate('/dashboard');
+      const response = await AuthService.login(email, password);
+      if (response.needsOrgSelection) {
+        navigate('/select-organization');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       const resMessage =
         (error.response &&
@@ -58,7 +64,7 @@ const LoginPage = () => {
 
   return (
     <motion.div
-      className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6"
+      className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-0 sm:p-6"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
@@ -120,7 +126,7 @@ const LoginPage = () => {
                     type="email"
                     placeholder="Enter your email"
                     id="email"
-                    className="w-full px-4 py-3 text-sm sm:text-base mt-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
+                    className="w-full text-black px-4 py-3 text-sm sm:text-base mt-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -133,21 +139,42 @@ const LoginPage = () => {
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1" htmlFor="password">
                     Password
                   </label>
-                  <a href="/forgot-password" className="text-xs text-indigo-600 hover:underline">
+                  {/* <a href="/forgot-password" className="text-xs text-indigo-600 hover:underline">
                     Forgot password?
-                  </a>
+                  </a> */}
                 </div>
-                <motion.div whileHover={{ scale: 1.01 }}>
+                {/* <motion.div whileHover={{ scale: 1.01 }}>
                   <input
                     type="password"
                     placeholder="Enter your password"
                     id="password"
-                    className="w-full px-4 py-3 text-sm sm:text-base mt-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
+                    className="w-full text-black px-4 py-3 text-sm sm:text-base mt-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
-                </motion.div>
+                </motion.div> */}
+                <motion.div whileHover={{ scale: 1.01 }} className="relative">
+      <input
+        type={showPassword ? 'text' : 'password'}
+        placeholder="Enter your password"
+        id="password"
+        className="w-full text-black px-4 py-3 pr-10 text-sm sm:text-base mt-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      
+      {/* Toggle password visibility icon */}
+      <button
+        type="button"
+        onClick={() => setShowPassword(!showPassword)}
+        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-gray-800 focus:outline-none"
+        tabIndex={-1} // Prevent focus on tab
+      >
+        {showPassword ? <FaEyeSlash /> : <FaEye />}
+      </button>
+    </motion.div>
               </motion.div>
 
               <motion.div variants={itemVariants}>
@@ -211,7 +238,7 @@ const LoginPage = () => {
         </motion.div>
 
         {/* Social login options - optional */}
-        <motion.div 
+        {/* <motion.div 
           className="mt-6 pt-4 border-t border-gray-200"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -249,7 +276,7 @@ const LoginPage = () => {
               </svg>
             </motion.button>
           </div>
-        </motion.div>
+        </motion.div> */}
       </motion.div>
     </motion.div>
   );

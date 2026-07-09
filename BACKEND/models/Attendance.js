@@ -3,6 +3,12 @@
 const mongoose = require('mongoose');
 
 const AttendanceSchema = new mongoose.Schema({
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: false,
+    index: true,
+  },
   worker: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Worker',

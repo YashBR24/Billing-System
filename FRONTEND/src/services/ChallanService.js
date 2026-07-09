@@ -13,6 +13,13 @@ const getAuthHeaders = () => {
   }
 };
 
+const getNextChallanNumber = (financialYear) => {
+  return axios.get(API_URL + 'next-number', {
+    headers: getAuthHeaders(),
+    params: { financialYear }
+  });
+};
+
 // Basic CRUD operations
 const createChallan = (challanData) => {
   return axios.post(API_URL, challanData, { headers: getAuthHeaders() });
@@ -26,10 +33,12 @@ const getChallanById = (id) => {
   return axios.get(API_URL + id, { headers: getAuthHeaders() });
 };
 
-const getChallansByCompany = (companyId) => {
-  return axios.get(API_URL, { headers: getAuthHeaders(), params: { companyId } });
+const getChallansByCompany = (companyId, financialYear) => {
+  return axios.get(API_URL + 'challans', {
+    headers: getAuthHeaders(),
+    params: { companyId, financialYear }
+  });
 };
-
 const updateChallan = (id, challanData) => {
   return axios.put(API_URL + id, challanData, { headers: getAuthHeaders() });
 };
@@ -70,4 +79,5 @@ export default {
   downloadChallansExcel,
   downloadChallansPdf,
   getChallansByCompany,
+  getNextChallanNumber
 };

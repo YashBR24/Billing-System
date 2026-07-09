@@ -1,1 +1,37 @@
 @import "tailwindcss";
+@import "./styles/modern-theme.css";
+
+/* Global styles for modern theme */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(135deg, 
+    rgb(15, 23, 42) 0%, 
+    rgb(30, 41, 59) 50%, 
+    rgb(15, 23, 42) 100%);
+  min-height: 100vh;
+  color: rgb(15, 23, 42);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Custom selection colors */
+::selection {
+  background-color: rgba(59, 130, 246, 0.3);
+  color: white;
+}
+
+::-moz-selection {
+  background-color: rgba(59, 130, 246, 0.3);
+  color: white;
+}

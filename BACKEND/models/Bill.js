@@ -9,12 +9,22 @@ const BillItemSchema = new mongoose.Schema({
 }, { _id: true });
 
 const BillSchema = new mongoose.Schema({
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: false,
+    index: true,
+  },
   billNumber: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
   },
+  financialYear: {
+  type: String,
+  required: true,
+  index: true
+},
   billDate: {
     type: Date,
     required: true,
@@ -25,14 +35,29 @@ const BillSchema = new mongoose.Schema({
     ref: 'Challan',
     default: null,
   },
+  challans: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Challan',
+  }],
   challanNumber: {
     type: String,
     trim: true,
     default: '',
   },
+  totalBoxes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  totalCops: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
   dueDate: {
     type: Date,
   },
+  // Buyer (main company - for all connections and references)
   company: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Company',
@@ -42,6 +67,22 @@ const BillSchema = new mongoose.Schema({
     name: String,
     address: String,
     gstNumber: String,
+  },
+  // Consignee (optional - if different from buyer)
+  isConsigneeDifferent: {
+    type: Boolean,
+    default: false,
+  },
+  consignee: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    default: null,
+  },
+  consigneeDetailsSnapshot: {
+    name: String,
+    address: String,
+    gstNumber: String,
+    stateCode: String,
   },
   items: [BillItemSchema],
   subTotalAmount: {
@@ -54,6 +95,10 @@ const BillSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 100,
+  },
+  roundOffAmount: {
+    type: Number,
+    default: 0
   },
   discountAmount: {
     type: Number,
@@ -139,13 +184,28 @@ const BillSchema = new mongoose.Schema({
     referenceNumber: String,
     notes: String,
   }],
+  // New: E-way bill number
+  eWayBillNumber: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  // New: Payment terms in days (default 30)
+  paymentTermsDays: {
+    type: Number,
+    default: 30,
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
   },
+  debitNote: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'DebitNote',
+    default: null,
+  },
   excelFilePath: { type: String },
-  pdfFilePath: { type: String },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -156,75 +216,124 @@ const BillSchema = new mongoose.Schema({
   },
 });
 
-// Pre-save hook to calculate taxes, amounts, and update fields
+BillSchema.index({ organizationId: 1, financialYear: 1, billNumber: 1 }, { unique: true });
+
 BillSchema.pre('save', async function(next) {
   const Settings = mongoose.model('Settings');
-  const settings = await Settings.getSettings();
+  const settings = await Settings.getSettings(this.organizationId);
 
-  // Calculate subTotalAmount from items
-  this.subTotalAmount = this.items.reduce((acc, item) => acc + item.amount, 0);
-  this.subTotalAmount = parseFloat(this.subTotalAmount.toFixed(2));
+    // 1️⃣ Subtotal
+    this.subTotalAmount = (this.items || []).reduce(
+      (acc, item) => acc + item.amount,
+      0
+    );
+  this.subTotalAmount = Number(this.subTotalAmount.toFixed(2));
 
-  // Calculate discount
-  this.discountAmount = (this.subTotalAmount * this.discountPercentage) / 100;
-  this.discountAmount = parseFloat(this.discountAmount.toFixed(2));
-  this.amountAfterDiscount = this.subTotalAmount - this.discountAmount;
-  this.amountAfterDiscount = parseFloat(this.amountAfterDiscount.toFixed(2));
+  // 2️⃣ Discount
+  this.discountAmount = Number(
+    ((this.subTotalAmount * this.discountPercentage) / 100).toFixed(2)
+  );
 
-  // Reset tax amounts
+  this.amountAfterDiscount = Number(
+    (this.subTotalAmount - this.discountAmount).toFixed(2)
+  );
+
+  // 3️⃣ Reset taxes
   this.cgstAmount = 0;
   this.sgstAmount = 0;
   this.igstAmount = 0;
   this.jobCgstAmount = 0;
   this.jobSgstAmount = 0;
 
-  // Apply tax based on taxType
+  // 4️⃣ Apply tax (WITH 2 DECIMAL ROUNDING)
   if (this.taxType === 'CGST_SGST') {
+
     this.cgstPercentage = settings.cgstPercentage;
     this.sgstPercentage = settings.sgstPercentage;
-    this.cgstAmount = (this.amountAfterDiscount * this.cgstPercentage) / 100;
-    this.sgstAmount = (this.amountAfterDiscount * this.sgstPercentage) / 100;
-  } else if (this.taxType === 'IGST') {
-    this.igstPercentage = settings.igstPercentage;
-    this.igstAmount = (this.amountAfterDiscount * this.igstPercentage) / 100;
-  } else if (this.taxType === 'JOBCGST_JOBSGST') {
-    this.jobCgstPercentage = settings.jobCgstPercentage;
-    this.jobSgstPercentage = settings.jobSgstPercentage;
-    this.jobCgstAmount = (this.amountAfterDiscount * this.jobCgstPercentage) / 100;
-    this.jobSgstAmount = (this.amountAfterDiscount * this.jobSgstPercentage) / 100;
+
+    this.cgstAmount = Number(
+      ((this.amountAfterDiscount * this.cgstPercentage) / 100).toFixed(2)
+    );
+
+    this.sgstAmount = Number(
+      ((this.amountAfterDiscount * this.sgstPercentage) / 100).toFixed(2)
+    );
   }
 
-  // Calculate total tax amount
-  this.totalTaxAmount = this.cgstAmount + this.sgstAmount + this.igstAmount + this.jobCgstAmount + this.jobSgstAmount;
-  this.totalTaxAmount = parseFloat(this.totalTaxAmount.toFixed(2));
+  if (this.taxType === 'IGST') {
 
-  // Calculate total amount
-  this.totalAmount = this.amountAfterDiscount + this.totalTaxAmount;
-  this.totalAmount = parseFloat(this.totalAmount.toFixed(2));
+    this.igstPercentage = settings.igstPercentage;
 
-  // Update total paid amount and status
-  this.totalPaidAmount = this.paymentRecords.reduce((acc, record) => acc + record.amountPaid, 0);
-  this.totalPaidAmount = parseFloat(this.totalPaidAmount.toFixed(2));
+    this.igstAmount = Number(
+      ((this.amountAfterDiscount * this.igstPercentage) / 100).toFixed(2)
+    );
+  }
+
+  if (this.taxType === 'JOBCGST_JOBSGST') {
+
+    this.jobCgstPercentage = settings.jobCgstPercentage;
+    this.jobSgstPercentage = settings.jobSgstPercentage;
+
+    this.jobCgstAmount = Number(
+      ((this.amountAfterDiscount * this.jobCgstPercentage) / 100).toFixed(2)
+    );
+
+    this.jobSgstAmount = Number(
+      ((this.amountAfterDiscount * this.jobSgstPercentage) / 100).toFixed(2)
+    );
+  }
+
+  // 5️⃣ Total Tax
+  this.totalTaxAmount = Number(
+    (
+      this.cgstAmount +
+      this.sgstAmount +
+      this.igstAmount +
+      this.jobCgstAmount +
+      this.jobSgstAmount
+    ).toFixed(2)
+  );
+
+  // 6️⃣ Raw Total
+  const rawTotal = Number(
+    (this.amountAfterDiscount + this.totalTaxAmount).toFixed(2)
+  );
+
+  // 7️⃣ Final Rounded Total (IMPORTANT)
+  const roundedTotal = Math.round(rawTotal);
+
+  // 8️⃣ Round Off
+  this.roundOffAmount = Number(
+    (roundedTotal - rawTotal).toFixed(2)
+  );
+
+  this.totalAmount = roundedTotal;
+
+    // 9️⃣ Paid calculation
+    this.totalPaidAmount = Number(
+      ((this.paymentRecords || []).reduce(
+        (acc, r) => acc + r.amountPaid,
+        0
+      )).toFixed(2)
+    );
 
   if (this.totalPaidAmount >= this.totalAmount) {
     this.status = 'Paid';
-  } else if (this.totalPaidAmount > 0 && this.totalPaidAmount < this.totalAmount) {
+  } else if (this.totalPaidAmount > 0) {
     this.status = 'Partially Paid';
-  } else if (this.totalPaidAmount === 0 && this.status !== 'Cancelled') {
+  } else if (this.status !== 'Cancelled') {
     this.status = 'Pending';
   }
 
-  // Set due date if billDate is modified or dueDate is not set
-  if (this.isModified('billDate') || !this.dueDate) {
+  // 🔟 Due Date: compute from paymentTermsDays if provided, otherwise default 30
+  const terms = (this.paymentTermsDays && Number.isFinite(Number(this.paymentTermsDays))) ? parseInt(this.paymentTermsDays, 10) : 30;
+  if (this.isModified('billDate') || !this.dueDate || this.isModified('paymentTermsDays')) {
     const dueDate = new Date(this.billDate);
-    dueDate.setDate(dueDate.getDate() + 30);
+    dueDate.setDate(dueDate.getDate() + terms);
     this.dueDate = dueDate;
   }
 
-  // Update updatedAt
-  if (this.isModified()) {
-    this.updatedAt = Date.now();
-  }
+  this.updatedAt = Date.now();
 
   next();
 });

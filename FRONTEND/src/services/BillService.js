@@ -2,8 +2,10 @@ import axios from 'axios';
 import AuthService from './AuthService';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL + '/bills/';
-// const CHALLAN_API_URL = import.meta.env.VITE_API_BASE_URL + '/challans/';
 
+// ===============================
+// 🔐 AUTH HEADERS
+// ===============================
 const getAuthHeaders = () => {
   const user = AuthService.getCurrentUser();
   if (user && user.token) {
@@ -14,28 +16,53 @@ const getAuthHeaders = () => {
   }
 };
 
-// Basic CRUD operations
+// ===============================
+// ✅ BASIC CRUD
+// ===============================
 const createBill = (billData) => {
-  return axios.post(API_URL, billData, { headers: getAuthHeaders() });
+  return axios.post(API_URL, billData, {
+    headers: getAuthHeaders(),
+  });
 };
 
 const getAllBills = (params = {}) => {
-  return axios.get(API_URL, { headers: getAuthHeaders(), params });
+  return axios.get(API_URL, {
+    headers: getAuthHeaders(),
+    params, // supports financialYear, date filters, etc.
+  });
 };
 
 const getBillById = (id) => {
-  return axios.get(API_URL + id, { headers: getAuthHeaders() });
+  return axios.get(API_URL + id, {
+    headers: getAuthHeaders(),
+  });
 };
 
 const updateBill = (id, billData) => {
-  return axios.put(API_URL + id, billData, { headers: getAuthHeaders() });
+  return axios.put(API_URL + id, billData, {
+    headers: getAuthHeaders(),
+  });
 };
 
 const deleteBill = (id) => {
-  return axios.delete(API_URL + id, { headers: getAuthHeaders() });
+  return axios.delete(API_URL + id, {
+    headers: getAuthHeaders(),
+  });
 };
 
-// Single bill downloads
+// ===============================
+// 🆕 GET NEXT BILL NUMBER (IMPORTANT)
+// ===============================
+const getNextBillNumber = (financialYear) => {
+  return axios.get(API_URL + 'next-number', {
+    headers: getAuthHeaders(),
+    params: financialYear ? { financialYear } : {},
+  });
+};
+
+// ===============================
+// 📄 SINGLE BILL DOWNLOAD
+// ===============================
 const downloadBillExcel = (id) => {
   return axios.get(API_URL + id + '/excel', {
     headers: getAuthHeaders(),
@@ -50,7 +77,9 @@ const downloadBillPdf = (id) => {
   });
 };
 
-// Bulk download operations
+// ===============================
+// 📦 BULK DOWNLOAD
+// ===============================
 const downloadBulkExcel = (filters = {}) => {
   return axios.get(API_URL + 'download/excel', {
     headers: getAuthHeaders(),
@@ -67,14 +96,51 @@ const downloadBulkPdf = (filters = {}) => {
   });
 };
 
-// Get available challans for a company
-const getAvailableChallans = (companyId) => {
-  return axios.get(API_URL + 'available-challans/' + companyId, {
+// ===============================
+// 📋 CHALLAN RELATED
+// ===============================
+// const getAvailableChallans = (companyId) => {
+//   return axios.get(API_URL + 'available-challans/' + companyId, {
+//     headers: getAuthHeaders(),
+//   });
+// };
+
+// services/BillService.js
+
+// const getAvailableChallans =(companyId, financialYear) => {
+//   return axios.get(
+//     `/api/bills/challans/${companyId}?financialYear=${financialYear}`
+//   );
+// }
+
+const getAvailableChallans = (companyId, financialYear) => {
+  const user = JSON.parse(localStorage.getItem("user"));
+  const token = user?.token;
+
+  console.log("TOKEN:", token); // ✅ debug
+
+  return axios.get(
+    `${API_URL}challans/${companyId}?financialYear=${financialYear}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+}
+
+// ===============================
+// 🆕 CREATE BILL FROM CHALLANS
+// ===============================
+const createBillFromChallans = (data) => {
+  return axios.post(API_URL + 'from-challans', data, {
     headers: getAuthHeaders(),
   });
 };
 
-// Helper function to trigger file download
+// ===============================
+// 📥 HELPER: FILE DOWNLOAD
+// ===============================
 const triggerDownload = (blobData, fileName) => {
   const url = window.URL.createObjectURL(new Blob([blobData]));
   const link = document.createElement('a');
@@ -86,18 +152,28 @@ const triggerDownload = (blobData, fileName) => {
   window.URL.revokeObjectURL(url);
 };
 
+// ===============================
+// 🚀 EXPORT SERVICE
+// ===============================
 const BillService = {
   createBill,
+  createBillFromChallans,
+
   getAllBills,
   getBillById,
   updateBill,
   deleteBill,
+
+  // 🆕 IMPORTANT
+  getNextBillNumber,
+
   downloadBillExcel,
   downloadBillPdf,
   downloadBulkExcel,
   downloadBulkPdf,
-  triggerDownload,
+
   getAvailableChallans,
+  triggerDownload,
 };
 
 export default BillService;

@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import AuthService from '../services/AuthService';
 import logo from '../assets/MAHADEV_FILAMENTS-01.png'; // Make sure the path is correct
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 const SignupPage = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
@@ -125,7 +127,7 @@ const SignupPage = () => {
                     type="text"
                     placeholder="Enter your username"
                     id="username"
-                    className="w-full px-4 py-3 text-sm sm:text-base mt-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
+                    className="w-full text-black px-4 py-3 text-sm sm:text-base mt-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -142,7 +144,7 @@ const SignupPage = () => {
                     type="email"
                     placeholder="Enter your email"
                     id="email"
-                    className="w-full px-4 py-3 text-sm sm:text-base mt-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
+                    className="w-full text-black px-4 py-3 text-sm sm:text-base mt-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -154,7 +156,7 @@ const SignupPage = () => {
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1" htmlFor="password">
                   Password (min 6 characters)
                 </label>
-                <motion.div whileHover={{ scale: 1.01 }}>
+                {/* <motion.div whileHover={{ scale: 1.01 }}>
                   <input
                     type="password"
                     placeholder="Enter your password"
@@ -165,7 +167,28 @@ const SignupPage = () => {
                     required
                     minLength="6"
                   />
-                </motion.div>
+                </motion.div> */}
+                <motion.div whileHover={{ scale: 1.01 }} className="relative">
+      <input
+        type={showPassword ? 'text' : 'password'}
+        placeholder="Enter your password"
+        id="password"
+        className="w-full text-black px-4 py-3 pr-10 text-sm sm:text-base mt-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      
+      {/* Toggle password visibility icon */}
+      <button
+        type="button"
+        onClick={() => setShowPassword(!showPassword)}
+        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-gray-800 focus:outline-none"
+        tabIndex={-1} // Prevent focus on tab
+      >
+        {showPassword ? <FaEyeSlash /> : <FaEye />}
+      </button>
+    </motion.div>
               </motion.div>
 
               <motion.div variants={itemVariants}>
@@ -243,7 +266,7 @@ const SignupPage = () => {
         </motion.div>
 
         {/* Terms and Conditions */}
-        <motion.div 
+        {/* <motion.div 
           className="mt-6 pt-4 border-t border-gray-200 text-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -254,7 +277,7 @@ const SignupPage = () => {
             <a href="/terms" className="text-indigo-600 hover:underline">Terms</a> and{' '}
             <a href="/privacy" className="text-indigo-600 hover:underline">Privacy Policy</a>
           </p>
-        </motion.div>
+        </motion.div> */}
       </motion.div>
     </motion.div>
   );

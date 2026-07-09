@@ -1,0 +1,340 @@
+/* Modern Theme Styles for Billing System */
+
+/* Custom Scrollbar Styles */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(71, 85, 105) rgb(30, 41, 59);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgb(30, 41, 59);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgb(71, 85, 105);
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgb(100, 116, 139);
+}
+
+/* Glass morphism effect */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-effect-dark {
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+/* Modern gradient backgrounds */
+.modern-gradient-primary {
+  background: linear-gradient(135deg, 
+    rgb(59, 130, 246) 0%, 
+    rgb(147, 51, 234) 50%, 
+    rgb(239, 68, 68) 100%);
+}
+
+.modern-gradient-secondary {
+  background: linear-gradient(135deg, 
+    rgb(16, 185, 129) 0%, 
+    rgb(59, 130, 246) 50%, 
+    rgb(139, 92, 246) 100%);
+}
+
+.modern-gradient-accent {
+  background: linear-gradient(135deg, 
+    rgb(245, 101, 101) 0%, 
+    rgb(251, 146, 60) 50%, 
+    rgb(252, 211, 77) 100%);
+}
+
+/* Enhanced button styles */
+.modern-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.modern-button:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.modern-button:hover:before {
+  left: 100%;
+}
+
+/* Modern card styles */
+.modern-card {
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  border-radius: 16px;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.modern-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Modern input styles */
+.modern-input {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: white;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.modern-input:focus {
+  outline: none;
+  border-color: rgb(59, 130, 246);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.modern-input::placeholder {
+  color: rgb(148, 163, 184);
+}
+
+/* Modern table styles */
+.modern-table {
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.modern-table thead {
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.modern-table th {
+  padding: 16px;
+  text-align: left;
+  font-weight: 600;
+  color: rgb(226, 232, 240);
+  border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.modern-table td {
+  padding: 16px;
+  color: rgb(203, 213, 225);
+  border-bottom: 1px solid rgba(71, 85, 105, 0.2);
+}
+
+.modern-table tbody tr:hover {
+  background: rgba(51, 65, 85, 0.3);
+}
+
+/* Loading spinner */
+.modern-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(59, 130, 246, 0.3);
+  border-top: 3px solid rgb(59, 130, 246);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Status badges */
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-success {
+  background: rgba(16, 185, 129, 0.2);
+  color: rgb(52, 211, 153);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: rgb(251, 191, 36);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: rgb(248, 113, 113);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.status-info {
+  background: rgba(59, 130, 246, 0.2);
+  color: rgb(96, 165, 250);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Modern shadows */
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.shadow-glow-green {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+.shadow-glow-red {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.shadow-glow-purple {
+  box-shadow: 0 0 20px rgba(147, 51, 234, 0.3);
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .modern-card {
+    border-radius: 12px;
+  }
+  
+  .modern-input {
+    padding: 10px 14px;
+  }
+  
+  .modern-table th,
+  .modern-table td {
+    padding: 12px;
+  }
+}
+
+/* Animation utilities */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.5s ease-out;
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.5s ease-out;
+}
+
+.scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Modern form styles */
+.modern-form-group {
+  margin-bottom: 24px;
+}
+
+.modern-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: rgb(55, 65, 81);
+  font-size: 14px;
+}
+
+.modern-select {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: white;
+  width: 100%;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.modern-select:focus {
+  outline: none;
+  border-color: rgb(59, 130, 246);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Notification styles */
+.notification {
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(10px);
+  border-left: 4px solid;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.notification-success {
+  background: rgba(16, 185, 129, 0.1);
+  border-left-color: rgb(16, 185, 129);
+  color: rgb(52, 211, 153);
+}
+
+.notification-error {
+  background: rgba(239, 68, 68, 0.1);
+  border-left-color: rgb(239, 68, 68);
+  color: rgb(248, 113, 113);
+}
+
+.notification-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-left-color: rgb(245, 158, 11);
+  color: rgb(251, 191, 36);
+}
+
+.notification-info {
+  background: rgba(59, 130, 246, 0.1);
+  border-left-color: rgb(59, 130, 246);
+  color: rgb(96, 165, 250);
+}

@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const TransactionSchema = new mongoose.Schema({
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: false,
+    index: true,
+  },
   paymentDate: {
     type: Date,
     required: [true, 'Payment date is required.'],
@@ -24,9 +30,10 @@ const TransactionSchema = new mongoose.Schema({
     enum: [
       'BillPayment',      // Payment received for a sales bill
       'PurchasePayment',  // Payment made for a purchase bill
+      'InterestNotePayment', // Payment received for interest note
       'Salary',           // Salary paid to a worker
       'MiscellaneousIncome',// Other income (e.g., selling scrap)
-      'MiscellaneousExpense',// Other expenses (e.g., buying defective parts, office supplies)
+      'MiscellaneousExpense', // Other expenses (e.g., office supplies)
       'Other'             // General catch-all
     ],
     required: [true, 'Transaction category is required.'],
@@ -40,6 +47,10 @@ const TransactionSchema = new mongoose.Schema({
   relatedPurchases: [{ // Array to support linking to multiple purchase bills
     purchaseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Purchase' },
     purchaseBillNumber: String, // Denormalized
+  }],
+  relatedInterestNotes: [{
+    interestNoteId: { type: mongoose.Schema.Types.ObjectId, ref: 'InterestNote' },
+    interestNoteNumber: String,
   }],
   amount: {
     type: Number,

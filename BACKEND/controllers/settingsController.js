@@ -6,8 +6,8 @@ const { log } = require('../middleware/logger');
 // @access  Private/Admin
 const getSettings = async (req, res) => {
   try {
-    const settings = await Settings.getSettings(); // Uses the static method from the model
-    log(`Settings fetched by ${req.user.email}`, 'info');
+    const settings = await Settings.getSettings(req.organizationId);
+    log(`Settings fetched`, 'info');
     res.json(settings);
   } catch (error) {
     log(`Error fetching settings: ${error.message}`, 'error');
@@ -29,10 +29,10 @@ const updateSettings = async (req, res) => {
   } = req.body;
 
   try {
-    let settings = await Settings.findOne({ singletonId: 'global_settings' });
+    let settings = await Settings.findOne({ organizationId: req.organizationId });
     if (!settings) {
       // This case should ideally be handled by getSettings creating it, but as a fallback:
-      settings = new Settings({ singletonId: 'global_settings' });
+      settings = new Settings({ organizationId: req.organizationId });
       log('No existing settings found, creating new one during update.', 'info');
     }
 
@@ -59,7 +59,7 @@ const updateSettings = async (req, res) => {
     settings.updatedAt = new Date();
     const updatedSettings = await settings.save();
     
-    log(`Settings updated successfully by ${req.user.email}`, 'info');
+    log(`Settings updated successfully`, 'info');
     res.json(updatedSettings);
   } catch (error) {
     log(`Error updating settings: ${error.message}`, 'error');
@@ -80,7 +80,7 @@ const addItemConfiguration = async (req, res) => {
   }
 
   try {
-    const settings = await Settings.getSettings();
+    const settings = await Settings.getSettings(req.organizationId);
     // Check for duplicates
     const existingItem = settings.itemConfigurations.find(
       item => item.description === description && item.hsnSacCode === hsnSacCode
@@ -93,7 +93,7 @@ const addItemConfiguration = async (req, res) => {
     const newItem = { description, hsnSacCode, defaultRate: defaultRate || 0 };
     settings.itemConfigurations.push(newItem);
     await settings.save();
-    log(`Item configuration added: ${description}/${hsnSacCode} by ${req.user.email}`, 'info');
+    log(`Item configuration added: ${description}/${hsnSacCode}`, 'info');
     res.status(201).json(settings.itemConfigurations.slice(-1)[0]); // Return the newly added item
   } catch (error) {
     log(`Error adding item configuration: ${error.message}`, 'error');
@@ -113,7 +113,7 @@ const updateItemConfiguration = async (req, res) => {
   }
 
   try {
-    const settings = await Settings.getSettings();
+    const settings = await Settings.getSettings(req.organizationId);
     const itemIndex = settings.itemConfigurations.findIndex(item => item._id.toString() === itemId);
 
     if (itemIndex === -1) {
@@ -140,7 +140,7 @@ const updateItemConfiguration = async (req, res) => {
     
     settings.itemConfigurations[itemIndex] = itemToUpdate;
     await settings.save();
-    log(`Item configuration updated: ID ${itemId} by ${req.user.email}`, 'info');
+    log(`Item configuration updated: ID ${itemId}`, 'info');
     res.json(settings.itemConfigurations[itemIndex]);
   } catch (error) {
     log(`Error updating item configuration ID ${itemId}: ${error.message}`, 'error');
@@ -154,7 +154,7 @@ const updateItemConfiguration = async (req, res) => {
 const deleteItemConfiguration = async (req, res) => {
   const { itemId } = req.params;
   try {
-    const settings = await Settings.getSettings();
+    const settings = await Settings.getSettings(req.organizationId);
     const initialLength = settings.itemConfigurations.length;
     settings.itemConfigurations = settings.itemConfigurations.filter(item => item._id.toString() !== itemId);
 
@@ -164,7 +164,7 @@ const deleteItemConfiguration = async (req, res) => {
     }
 
     await settings.save();
-    log(`Item configuration deleted: ID ${itemId} by ${req.user.email}`, 'info');
+    log(`Item configuration deleted: ID ${itemId}`, 'info');
     res.json({ message: 'Item configuration removed.' });
   } catch (error) {
     log(`Error deleting item configuration ID ${itemId}: ${error.message}`, 'error');

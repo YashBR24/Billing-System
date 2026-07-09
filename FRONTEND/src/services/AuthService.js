@@ -25,6 +25,18 @@ const login = (email, password) => {
     });
 };
 
+const switchOrganization = async (token, organizationId) => {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/switch-organization`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ organizationId }),
+  });
+  return response.json();
+};
+
 const logout = () => {
   localStorage.removeItem('user');
 };
@@ -36,6 +48,7 @@ const getCurrentUser = () => {
 const AuthService = {
   signup,
   login,
+  switchOrganization,
   logout,
   getCurrentUser,
 };

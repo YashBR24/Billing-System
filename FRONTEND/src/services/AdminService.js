@@ -13,12 +13,28 @@ const getAuthHeaders = () => {
   }
 };
 
-// Fetch all users (admin only)
 const getAllUsers = () => {
   return axios.get(API_BASE_URL + '/auth/users', { headers: getAuthHeaders() });
 };
 
-// Fetch all logs (admin only, paginated)
+const getUsersByOrg = (organizationId) => {
+  const params = {};
+  if (organizationId) params.organizationId = organizationId;
+  return axios.get(API_BASE_URL + '/auth/users/by-org', { headers: getAuthHeaders(), params });
+};
+
+const createUser = (userData) => {
+  return axios.post(API_BASE_URL + '/auth/users', userData, { headers: getAuthHeaders() });
+};
+
+const updateUser = (userId, userData) => {
+  return axios.put(API_BASE_URL + `/auth/users/${userId}`, userData, { headers: getAuthHeaders() });
+};
+
+const deleteUser = (userId) => {
+  return axios.delete(API_BASE_URL + `/auth/users/${userId}`, { headers: getAuthHeaders() });
+};
+
 const getAllLogs = (page = 1, limit = 100) => {
   return axios.get(API_BASE_URL + '/logs', { 
     headers: getAuthHeaders(),
@@ -28,6 +44,10 @@ const getAllLogs = (page = 1, limit = 100) => {
 
 const AdminService = {
   getAllUsers,
+  getUsersByOrg,
+  createUser,
+  updateUser,
+  deleteUser,
   getAllLogs,
 };
 

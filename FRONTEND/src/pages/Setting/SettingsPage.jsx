@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Settings as SettingsIcon, Percent, Package, Plus, Edit3, Trash2, ArrowLeft, X, Sparkles, RefreshCw } from 'lucide-react';
 import SettingsService from '../../services/SettingsService';
-import ItemConfigForm from '../../components/ItemConfigForm';
+import ItemConfigForm from '../Setting/ItemConfigForm';
 
 const SettingsPage = () => {
   const [settings, setSettings] = useState({
@@ -13,15 +14,22 @@ const SettingsPage = () => {
     jobSgstPercentage: 0,
     itemConfigurations: [],
   });
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [initialLoadError, setInitialLoadError] = useState('');
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isUpdatingGST, setIsUpdatingGST] = useState(false);
   const [gstUpdateMessage, setGstUpdateMessage] = useState({ type: '', text: '' });
-
   const [showItemFormModal, setShowItemFormModal] = useState(false);
   const [editingItemConfig, setEditingItemConfig] = useState(null);
   const [isItemFormLoading, setIsItemFormLoading] = useState(false);
   const [itemFormError, setItemFormError] = useState('');
+
+  // Detect screen resize
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchSettings = useCallback(async () => {
     setIsPageLoading(true);
@@ -146,331 +154,370 @@ const SettingsPage = () => {
     setItemFormError('');
   };
 
+  // Item Configuration Card Component
+  const ItemCard = ({ item, index }) => (
+    <motion.div
+      className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200/50 p-5 hover:shadow-xl transition-all duration-300"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.3, delay: index * 0.05 }}
+      whileHover={{ y: -3 }}
+    >
+      <div className="flex justify-between items-start mb-2">
+        <h3 className="font-semibold text-slate-800">{item.description}</h3>
+        <p className="text-xs text-slate-500">{item.hsnSacCode}</p>
+      </div>
+      <p className="text-sm text-slate-600 mb-3">
+        <b>Rate:</b> ₹{item.defaultRate?.toFixed(2) || 'N/A'}
+      </p>
+      <div className="flex gap-2">
+        <motion.button
+          onClick={() => handleEditItemConfig(item)}
+          className="flex-1 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-medium hover:bg-indigo-100 flex items-center justify-center gap-1 text-sm"
+          whileTap={{ scale: 0.95 }}
+        >
+          <Edit3 className="h-4 w-4" /> Edit
+        </motion.button>
+        <motion.button
+          onClick={() => handleDeleteItemConfig(item._id)}
+          className="flex-1 px-3 py-2 bg-rose-50 text-rose-700 rounded-xl font-medium hover:bg-rose-100 flex items-center justify-center gap-1 text-sm"
+          whileTap={{ scale: 0.95 }}
+          disabled={isItemFormLoading}
+        >
+          <Trash2 className="h-4 w-4" /> Delete
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+
   if (isPageLoading) {
     return (
-      <motion.div
-        className="container mx-auto p-8 text-center text-gray-600"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="flex justify-center items-center gap-2">
-          <svg className="animate-spin h-6 w-6 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span>Loading settings...</span>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="text-center p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200/50">
+          <RefreshCw className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
+          <p className="text-slate-600 font-medium">Loading settings...</p>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   if (initialLoadError) {
     return (
-      <motion.div
-        className="container mx-auto p-8 text-center text-red-500"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        Error: {initialLoadError}
-      </motion.div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <motion.div
+          className="text-center p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-red-200/50"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-red-100 to-red-200 w-fit mx-auto mb-6">
+            <X className="h-12 w-12 text-red-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-slate-800 mb-2">Error Loading Settings</h3>
+          <p className="text-red-600">{initialLoadError}</p>
+        </motion.div>
+      </div>
     );
   }
 
   return (
     <motion.div
-      className="container mx-auto p-6 md:p-10 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen"
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <motion.h1
-        className="text-4xl font-extrabold text-gray-800 mb-8"
-        initial={{ y: -20 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        Application Settings
-      </motion.h1>
-
-      {/* GST Percentages Section */}
-      <motion.div
-        className="bg-white shadow-lg rounded-xl p-6 mb-8"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-      >
-        <h2 className="text-xl font-semibold text-gray-700 mb-4">Default GST Percentages</h2>
-        <form onSubmit={handleSaveGSTPercentages} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="sgstPercentage" className="block text-sm font-medium text-gray-700">SGST (%)</label>
-              <input
-                type="number"
-                name="sgstPercentage"
-                id="sgstPercentage"
-                value={settings.sgstPercentage}
-                onChange={handleGSTChange}
-                step="0.01"
-                min="0"
-                max="100"
-                className="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-4">
+        {/* Header Section */}
+        <motion.div
+          className="mb-4"
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.4 }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 shadow-lg">
+              <SettingsIcon className="h-6 w-6 text-white" />
             </div>
             <div>
-              <label htmlFor="cgstPercentage" className="block text-sm font-medium text-gray-700">CGST (%)</label>
-              <input
-                type="number"
-                name="cgstPercentage"
-                id="cgstPercentage"
-                value={settings.cgstPercentage}
-                onChange={handleGSTChange}
-                step="0.01"
-                min="0"
-                max="100"
-                className="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              />
-            </div>
-            <div>
-              <label htmlFor="igstPercentage" className="block text-sm font-medium text-gray-700">IGST (%)</label>
-              <input
-                type="number"
-                name="igstPercentage"
-                id="igstPercentage"
-                value={settings.igstPercentage}
-                onChange={handleGSTChange}
-                step="0.01"
-                min="0"
-                max="100"
-                className="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              />
+              <h1 className="text-lg lg:text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                Application Settings
+              </h1>
+              <p className="text-slate-500 text-xs lg:text-sm font-medium">
+                Configure GST rates and item details
+              </p>
             </div>
           </div>
-          
-          <h3 className="text-lg font-semibold text-gray-700 mt-6 mb-4">Job GST Percentages</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="jobCgstPercentage" className="block text-sm font-medium text-gray-700">Job CGST (%)</label>
-              <input
-                type="number"
-                name="jobCgstPercentage"
-                id="jobCgstPercentage"
-                value={settings.jobCgstPercentage}
-                onChange={handleGSTChange}
-                step="0.01"
-                min="0"
-                max="100"
-                className="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              />
-            </div>
-            <div>
-              <label htmlFor="jobSgstPercentage" className="block text-sm font-medium text-gray-700">Job SGST (%)</label>
-              <input
-                type="number"
-                name="jobSgstPercentage"
-                id="jobSgstPercentage"
-                value={settings.jobSgstPercentage}
-                onChange={handleGSTChange}
-                step="0.01"
-                min="0"
-                max="100"
-                className="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              />
-            </div>
-          </div>
+        </motion.div>
 
-          <div className="flex justify-end">
-            <motion.button
-              type="submit"
-              disabled={isUpdatingGST}
-              className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 disabled:opacity-50 transition-all"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {isUpdatingGST ? (
-                <div className="flex items-center gap-2">
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Saving...
-                </div>
-              ) : (
-                'Save GST Settings'
+        {/* GST Percentages Section */}
+        <motion.div
+          className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200/50 p-6 mb-8 hover:shadow-xl transition-all duration-300"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
+              <Percent className="h-5 w-5" />
+            </div>
+            <h2 className="text-lg lg:text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Default GST Percentages</h2>
+          </div>
+          <form onSubmit={handleSaveGSTPercentages} className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="sgstPercentage" className="block text-sm font-medium text-gray-700">SGST (%)</label>
+                <input
+                  type="number"
+                  name="sgstPercentage"
+                  id="sgstPercentage"
+                  value={settings.sgstPercentage}
+                  onChange={handleGSTChange}
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="mt-1 block w-full px-3 py-2 lg:px-4 lg:py-3 text-slate-900 bg-white border border-slate-200 rounded-lg lg:rounded-xl shadow-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <label htmlFor="cgstPercentage" className="block text-sm font-medium text-gray-700">CGST (%)</label>
+                <input
+                  type="number"
+                  name="cgstPercentage"
+                  id="cgstPercentage"
+                  value={settings.cgstPercentage}
+                  onChange={handleGSTChange}
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="mt-1 block w-full px-3 py-2 lg:px-4 lg:py-3 text-slate-900 bg-white border border-slate-200 rounded-lg lg:rounded-xl shadow-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <label htmlFor="igstPercentage" className="block text-sm font-medium text-gray-700">IGST (%)</label>
+                <input
+                  type="number"
+                  name="igstPercentage"
+                  id="igstPercentage"
+                  value={settings.igstPercentage}
+                  onChange={handleGSTChange}
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="mt-1 block w-full px-3 py-2 lg:px-4 lg:py-3 text-slate-900 bg-white border border-slate-200 rounded-lg lg:rounded-xl shadow-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200"
+                />
+              </div>
+            </div>
+            
+            <h3 className="text-lg lg:text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Job GST Percentages</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="jobCgstPercentage" className="block text-sm font-medium text-gray-700">Job CGST (%)</label>
+                <input
+                  type="number"
+                  name="jobCgstPercentage"
+                  id="jobCgstPercentage"
+                  value={settings.jobCgstPercentage}
+                  onChange={handleGSTChange}
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="mt-1 block w-full px-3 py-2 lg:px-4 lg:py-3 text-slate-900 bg-white border border-slate-200 rounded-lg lg:rounded-xl shadow-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <label htmlFor="jobSgstPercentage" className="block text-sm font-medium text-gray-700">Job SGST (%)</label>
+                <input
+                  type="number"
+                  name="jobSgstPercentage"
+                  id="jobSgstPercentage"
+                  value={settings.jobSgstPercentage}
+                  onChange={handleGSTChange}
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="mt-1 block w-full px-3 py-2 lg:px-4 lg:py-3 text-slate-900 bg-white border border-slate-200 rounded-lg lg:rounded-xl shadow-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <motion.button
+                type="submit"
+                disabled={isUpdatingGST}
+                className="px-3 py-1.5 lg:px-6 lg:py-3 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white text-sm lg:text-md font-semibold rounded-lg lg:rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 group"
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {isUpdatingGST ? (
+                  <>
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save GST Settings'
+                )}
+              </motion.button>
+            </div>
+            <AnimatePresence>
+              {gstUpdateMessage.text && (
+                <motion.div
+                  className={`mt-4 p-4 rounded-xl text-sm flex items-center gap-3 ${
+                    gstUpdateMessage.type === 'success'
+                      ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                      : 'bg-red-50 border border-red-200 text-red-700'
+                  }`}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <div className={`p-1 rounded-full ${
+                    gstUpdateMessage.type === 'success' ? 'bg-emerald-100' : 'bg-red-100'
+                  }`}>
+                    {gstUpdateMessage.type === 'success' ? (
+                      <Sparkles className="h-4 w-4" />
+                    ) : (
+                      <X className="h-4 w-4" />
+                    )}
+                  </div>
+                  {gstUpdateMessage.text}
+                </motion.div>
               )}
+            </AnimatePresence>
+          </form>
+        </motion.div>
+
+        {/* Item Configurations Section */}
+        <motion.div
+          className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200/50 p-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
+                <Package className="h-5 w-5" />
+              </div>
+              <h2 className="text-lg lg:text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Item Configurations</h2>
+            </div>
+            <motion.button
+              onClick={handleAddItemConfig}
+              className="px-3 py-1.5 lg:px-6 lg:py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-sm lg:text-md font-semibold rounded-lg lg:rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 group"
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform duration-300" />
+              Add Item Config
             </motion.button>
           </div>
+
+          {isItemFormLoading && settings.itemConfigurations.length === 0 && (
+            <motion.div
+              className="text-center py-8"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex justify-center items-center gap-3 text-slate-600">
+                <RefreshCw className="h-6 w-6 animate-spin" />
+                <span className="font-medium">Loading items...</span>
+              </div>
+            </motion.div>
+          )}
+
           <AnimatePresence>
-            {gstUpdateMessage.text && (
-              <motion.p
-                className={`mt-2 text-sm ${gstUpdateMessage.type === 'success' ? 'text-green-600' : 'text-red-500'}`}
+            {itemFormError && (
+              <motion.div
+                className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-3"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
               >
-                {gstUpdateMessage.text}
-              </motion.p>
+                <div className="p-1 rounded-full bg-red-100">
+                  <X className="h-4 w-4" />
+                </div>
+                {itemFormError}
+              </motion.div>
             )}
           </AnimatePresence>
-        </form>
-      </motion.div>
 
-      {/* Item Configurations Section */}
-      <motion.div
-        className="bg-white shadow-lg rounded-xl p-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-700">Item Configurations (Description, HSN/SAC, Rate)</h2>
-          <motion.button
-            onClick={handleAddItemConfig}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-all"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Add Item Config
-          </motion.button>
-        </div>
-
-        {isItemFormLoading && settings.itemConfigurations.length === 0 && (
-          <motion.div
-            className="text-center text-gray-600 py-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="flex justify-center items-center gap-2">
-              <svg className="animate-spin h-6 w-6 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span>Loading items...</span>
-            </div>
-          </motion.div>
-        )}
-
-        <AnimatePresence>
-          {itemFormError && (
-            <motion.p
-              className="text-red-500 text-sm mb-3"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-            >
-              {itemFormError}
-            </motion.p>
-          )}
-        </AnimatePresence>
-
-        {settings.itemConfigurations.length === 0 && !isItemFormLoading && (
-          <motion.div
-            className="text-center text-gray-600 py-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            No item configurations found. Add one to get started.
-          </motion.div>
-        )}
-
-        {settings.itemConfigurations.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0 z-10">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">HSN/SAC</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Default Rate</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                <AnimatePresence>
-                  {settings.itemConfigurations.map((item, index) => (
-                    <motion.tr
-                      key={item._id || item.description + item.hsnSacCode}
-                      className="hover:bg-gray-50 transition-colors"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.description}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.hsnSacCode}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.defaultRate !== undefined ? item.defaultRate.toFixed(2) : 'N/A'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <motion.button
-                          onClick={() => handleEditItemConfig(item)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-3 transition-colors"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          Edit
-                        </motion.button>
-                        <motion.button
-                          onClick={() => handleDeleteItemConfig(item._id)}
-                          className="text-red-600 hover:text-red-900 transition-colors"
-                          disabled={isItemFormLoading}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          Delete
-                        </motion.button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Modal for Add/Edit Item Configuration */}
-      <AnimatePresence>
-        {showItemFormModal && (
-          <motion.div
-            className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
+          {settings.itemConfigurations.length === 0 && !isItemFormLoading && (
             <motion.div
-              className="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-xl bg-white"
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              className="text-center py-12"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <button
-                onClick={handleCancelItemForm}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 transition-colors"
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 w-fit mx-auto mb-6">
+                <Package className="h-12 w-12 text-slate-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-800 mb-2">No item configurations</h3>
+              <p className="text-slate-500">Add your first item configuration to get started.</p>
+            </motion.div>
+          )}
+
+          {settings.itemConfigurations.length > 0 && (
+            <div className={"grid grid-cols-1 lg:grid-cols-3 gap-4"}>
+              <AnimatePresence>
+                {settings.itemConfigurations.map((item, index) => (
+                  <ItemCard key={item._id || item.description + item.hsnSacCode} item={item} index={index} />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Modal for Add/Edit Item Configuration */}
+        <AnimatePresence>
+          {showItemFormModal && (
+            <motion.div
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCancelItemForm}
+            >
+              <motion.div
+                className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
               >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <div className="mt-3">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-                  {editingItemConfig ? 'Edit Item Configuration' : 'Add New Item Configuration'}
-                </h3>
-                <AnimatePresence>
-                  {itemFormError && (
-                    <motion.p
-                      className="text-sm text-red-500 mb-3 text-center"
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                    >
-                      {itemFormError}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-                <div className="mt-2 px-4 py-3">
+                <div className="flex justify-between items-center p-6 border-b border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500 to-blue-600">
+                      <Package className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800">
+                      {editingItemConfig ? 'Edit Item Configuration' : 'Add New Item Configuration'}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={handleCancelItemForm}
+                    className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all duration-200"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="p-6">
+                  <AnimatePresence>
+                    {itemFormError && (
+                      <motion.div
+                        className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-3"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                      >
+                        <div className="p-1 rounded-full bg-red-100">
+                          <X className="h-4 w-4" />
+                        </div>
+                        {itemFormError}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   <ItemConfigForm
                     onSubmit={handleItemFormSubmit}
                     initialData={editingItemConfig}
@@ -478,22 +525,11 @@ const SettingsPage = () => {
                     isLoading={isItemFormLoading}
                   />
                 </div>
-              </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <motion.div
-        className="mt-8 text-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay: 0.3 }}
-      >
-        <Link to="/dashboard" className="text-indigo-600 hover:text-indigo-800 transition-colors">
-          ← Back to Dashboard
-        </Link>
-      </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 };

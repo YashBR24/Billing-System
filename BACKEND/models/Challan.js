@@ -7,12 +7,22 @@ const BoxDetailSchema = new mongoose.Schema({
 }, { _id: true });
 
 const ChallanSchema = new mongoose.Schema({
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: false,
+    index: true,
+  },
   challanNumber: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
   },
+  financialYear: {
+  type: String,
+  required: true,
+  index: true
+},
   challanDate: {
     type: Date,
     required: true,
@@ -54,7 +64,6 @@ const ChallanSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
-  pdfFilePath: { type: String },
   bill: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Bill',
@@ -83,6 +92,11 @@ ChallanSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
+
+
+ChallanSchema.index({ organizationId: 1, challanNumber: 1 }, { unique: true });
+ChallanSchema.index({ financialYear: 1 });
+ChallanSchema.index({ createdAt: -1 });
 
 
 module.exports = mongoose.model('Challan', ChallanSchema);

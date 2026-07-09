@@ -1,20 +1,56 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Users, 
+  Plus, 
+  Search, 
+  Filter, 
+  Edit3, 
+  Trash2, 
+  Phone, 
+  Calendar, 
+  UserCheck, 
+  UserX,
+  ArrowLeft,
+  X,
+  Sparkles,
+  TrendingUp,
+  User,
+  Clock,
+  Badge,
+  RefreshCw,
+  Eye,
+  ChevronRight
+} from 'lucide-react';
 import WorkerService from '../../services/WorkerService';
-import WorkerForm from '../../components/WorkerForm';
+import WorkerForm from '../Worker/WorkerForm';
 
 const WorkerPage = () => {
   const [workers, setWorkers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingWorker, setEditingWorker] = useState(null);
   const [filterActive, setFilterActive] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchWorkers = useCallback(async () => {
     setIsLoading(true);
     setError('');
+    setSuccessMessage('');
     const params = {};
     if (filterActive !== 'all') {
       params.active = filterActive;
@@ -26,10 +62,6 @@ const WorkerPage = () => {
       const errMsg = err.response?.data?.message || err.message || 'Failed to fetch workers.';
       setError(errMsg);
       console.error("Fetch workers error:", errMsg);
-      // Auto-dismiss error after 5 seconds
-      setTimeout(() => {
-        setError('');
-      }, 5000);
     } finally {
       setIsLoading(false);
     }
@@ -52,16 +84,16 @@ const WorkerPage = () => {
   const handleDeleteWorker = async (workerId) => {
     if (window.confirm('Are you sure you want to delete this worker? This may affect historical attendance data if not handled carefully.')) {
       setIsLoading(true);
+      setError('');
+      setSuccessMessage('');
       try {
         await WorkerService.deleteWorker(workerId);
         setWorkers(workers.filter(w => w._id !== workerId));
+        setSuccessMessage('Worker deleted successfully!');
       } catch (err) {
         const errMsg = err.response?.data?.message || err.message || 'Failed to delete worker.';
         setError(errMsg);
-        // Auto-dismiss error after 5 seconds
-        setTimeout(() => {
-          setError('');
-        }, 5000);
+        console.error("Delete worker error:", errMsg);
       } finally {
         setIsLoading(false);
       }
@@ -71,11 +103,14 @@ const WorkerPage = () => {
   const handleFormSubmit = async (workerData) => {
     setIsLoading(true);
     setError('');
+    setSuccessMessage('');
     try {
       if (editingWorker) {
         await WorkerService.updateWorker(editingWorker._id, workerData);
+        setSuccessMessage('Worker updated successfully!');
       } else {
         await WorkerService.createWorker(workerData);
+        setSuccessMessage('Worker added successfully!');
       }
       setShowFormModal(false);
       setEditingWorker(null);
@@ -94,201 +129,200 @@ const WorkerPage = () => {
     setError('');
   };
 
+  // Filter workers based on search term
+  const filteredWorkers = workers.filter(worker =>
+    worker.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    worker.workerId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    worker.contactNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Get worker statistics
+  const getWorkerStats = () => {
+    const stats = {
+      total: workers.length,
+      active: workers.filter(w => w.isActive).length,
+      inactive: workers.filter(w => !w.isActive).length,
+    };
+    return stats;
+  };
+
+  const stats = getWorkerStats();
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return new Date(dateString).toLocaleDateString('en-IN', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric' 
+    });
   };
+
+  if (isLoading && workers.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="text-center p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200/50">
+          <RefreshCw className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
+          <p className="text-slate-600 font-medium">Loading workers...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
-      className="container mx-auto p-6 md:p-10 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen"
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-        <motion.h1
-          className="text-4xl font-extrabold text-gray-800"
-          initial={{ y: -20 }}
-          animate={{ y: 0 }}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-4">
+        {/* Header Section */}
+        <motion.div
+          className="mb-4"
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.4 }}
         >
-          Manage Workers
-        </motion.h1>
-        <div className="flex items-center gap-3">
-          <select
-            value={filterActive}
-            onChange={(e) => setFilterActive(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all min-w-[150px]"
-          >
-            <option value="all">All Workers</option>
-            <option value="true">Active Only</option>
-            <option value="false">Inactive Only</option>
-          </select>
-          <motion.button
-            onClick={handleAddWorker}
-            className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-all"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Add New Worker
-          </motion.button>
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            className="mb-6 p-4 bg-red-50 text-red-500 rounded-lg"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-          >
-            {error}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {isLoading && workers.length === 0 && (
-        <motion.div
-          className="text-center text-gray-600 py-8"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <div className="flex justify-center items-center gap-2">
-            <svg className="animate-spin h-6 w-6 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span>Loading workers...</span>
-          </div>
-        </motion.div>
-      )}
-
-      {!isLoading && workers.length === 0 && !error && (
-        <motion.div
-          className="text-center text-gray-600 py-8"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          No workers found matching your criteria. Click "Add New Worker" to get started.
-        </motion.div>
-      )}
-
-      {workers.length > 0 && (
-        <motion.div
-          className="bg-white shadow-lg rounded-xl overflow-x-auto"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="flex justify-between items-center p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-700">Worker List</h2>
-            <span className="text-sm text-gray-600">
-              Total: <span className="font-medium">{workers.length}</span> {workers.length === 1 ? 'worker' : 'workers'}
-            </span>
-          </div>
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0 z-10">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Worker ID</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Joining Date</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              <AnimatePresence>
-                {workers.map((worker, index) => (
-                  <motion.tr
-                    key={worker._id}
-                    className="hover:bg-gray-50 transition-colors"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{worker.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{worker.workerId || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{worker.contactNumber || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(worker.joiningDate)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${worker.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {worker.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <motion.button
-                        onClick={() => handleEditWorker(worker)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-3 transition-colors"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        Edit
-                      </motion.button>
-                      <motion.button
-                        onClick={() => handleDeleteWorker(worker._id)}
-                        className="text-red-600 hover:text-red-900 transition-colors"
-                        disabled={isLoading}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        Delete
-                      </motion.button>
-                    </td>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-            </tbody>
-          </table>
-        </motion.div>
-      )}
-
-      <AnimatePresence>
-        {showFormModal && (
-          <motion.div
-            className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <motion.div
-              className="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-xl bg-white"
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={{ duration: 0.3 }}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 shadow-lg">
+                <Users className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg lg:text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                  Worker Management
+                </h1>
+                <p className="text-slate-500 text-xs xl:text-sm font-medium">
+                  Manage your workforce and employee records
+                </p>
+              </div>
+            </div>
+            
+            <div className='hidden xl:block'>
+            <motion.button
+              onClick={handleAddWorker}
+              className="px-3 py-1.5 xl:px-6 xl:py-3 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white text-sm xl:text-md font-semibold rounded-lg xl:rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 group"
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
             >
-              <button
-                onClick={handleCancelForm}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 transition-colors"
+              <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform duration-300" />
+              Add New Worker
+            </motion.button>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Statistics Cards */}
+        <motion.div
+          className="grid grid-cols-3 xl:grid-cols-3 gap-6 mb-8"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <StatCard
+            title="Total Workers"
+            value={stats.total}
+            icon={<Users className="h-5 w-5" />}
+            gradient="from-slate-500 to-slate-600"
+            bgGradient="from-slate-50 to-slate-100"
+          />
+          <StatCard
+            title="Active Workers"
+            value={stats.active}
+            icon={<UserCheck className="h-5 w-5" />}
+            gradient="from-emerald-500 to-emerald-600"
+            bgGradient="from-emerald-50 to-emerald-100"
+          />
+          <StatCard
+            title="Inactive Workers"
+            value={stats.inactive}
+            icon={<UserX className="h-5 w-5" />}
+            gradient="from-red-500 to-red-600"
+            bgGradient="from-red-50 to-red-100"
+          />
+        </motion.div>
+
+        {/* Filters and Search Section */}
+        <motion.div
+          className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200/50 p-6 mb-8"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Search Bar */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search workers by name, worker ID, or contact number..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 text-black bg-white border border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'all', label: 'All Workers' },
+                { key: 'true', label: 'Active' },
+                { key: 'false', label: 'Inactive' }
+              ].map((filter) => (
+                <motion.button
+                  key={filter.key}
+                  onClick={() => setFilterActive(filter.key)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    filterActive === filter.key
+                      ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-lg'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {filter.label}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Modal for Add/Edit Worker */}
+        <AnimatePresence>
+          {showFormModal && (
+            <motion.div
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCancelForm}
+            >
+              <motion.div
+                className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
               >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <div className="mt-3">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-                  {editingWorker ? 'Edit Worker' : 'Add New Worker'}
-                </h3>
-                <AnimatePresence>
-                  {error && (
-                    <motion.p
-                      className="text-sm text-red-500 mb-3 text-center"
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                    >
-                      {error}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-                <div className="mt-2 px-4 py-3">
+                <div className="flex justify-between items-center p-6 border-b border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500 to-blue-600">
+                      <Users className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800">
+                      {editingWorker ? 'Edit Worker' : 'Add New Worker'}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={handleCancelForm}
+                    className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all duration-200"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="p-6">
                   <WorkerForm
                     onSubmit={handleFormSubmit}
                     initialData={editingWorker}
@@ -296,24 +330,194 @@ const WorkerPage = () => {
                     isLoading={isLoading}
                   />
                 </div>
-              </div>
+              </motion.div>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Success/Error Messages */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-3"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <div className="p-1 rounded-full bg-red-100">
+                <X className="h-4 w-4" />
+              </div>
+              {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {successMessage && (
+            <motion.div
+              className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm flex items-center gap-3"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <div className="p-1 rounded-full bg-emerald-100">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              {successMessage}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Empty State */}
+        {!isLoading && filteredWorkers.length === 0 && !error && (
+          <motion.div
+            className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200/50 p-12 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 w-fit mx-auto mb-6">
+              <Users className="h-12 w-12 text-slate-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-slate-800 mb-2">
+              {searchTerm ? 'No workers found' : 'No workers yet'}
+            </h3>
+            <p className="text-slate-500 mb-6">
+              {searchTerm 
+                ? 'Try adjusting your search terms or filters.' 
+                : 'Get started by adding your first worker.'
+              }
+            </p>
           </motion.div>
         )}
-      </AnimatePresence>
 
-      <motion.div
-        className="mt-8 text-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay: 0.3 }}
-      >
-        <Link to="/dashboard" className="text-indigo-600 hover:text-indigo-800 transition-colors">
-          ← Back to Dashboard
-        </Link>
-      </motion.div>
+        {/* Workers Grid/List */}
+        {filteredWorkers.length > 0 && (
+          <motion.div
+            className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-3'}`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            {filteredWorkers.map((worker, index) => (
+              <motion.div
+                key={worker._id}
+                className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200/50 p-6 hover:shadow-xl transition-all duration-300 group"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                whileHover={{ y: -4 }}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 group-hover:from-violet-100 group-hover:to-blue-100 transition-all duration-300">
+                      <User className="h-6 w-6 text-slate-600 group-hover:text-violet-600 transition-colors duration-300" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800 text-lg group-hover:text-violet-600 transition-colors duration-300">
+                        {worker.name}
+                      </h3>
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border ${
+                        worker.isActive 
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+                          : 'bg-red-100 text-red-800 border-red-200'
+                      }`}>
+                        {worker.isActive ? <UserCheck className="h-3 w-3" /> : <UserX className="h-3 w-3" />}
+                        {worker.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <motion.button
+                      onClick={() => handleEditWorker(worker)}
+                      className="p-2 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-all duration-200"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      title="Edit Worker"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </motion.button>
+                    <motion.button
+                      onClick={() => handleDeleteWorker(worker._id)}
+                      className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      title="Delete Worker"
+                      disabled={isLoading}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </motion.button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {worker.workerId && (
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                      <Badge className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                      <span className="font-mono">ID: {worker.workerId}</span>
+                    </div>
+                  )}
+                  
+                  {worker.contactNumber && (
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                      <Phone className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                      <span>{worker.contactNumber}</span>
+                    </div>
+                  )}
+                  
+                  {worker.joiningDate && (
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                      <Calendar className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                      <span>Joined: {formatDate(worker.joiningDate)}</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Mobile Floating Action Button */}
+        {window.innerWidth < 1080 && (
+          <motion.button
+            onClick={handleAddWorker}
+            className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center z-40"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          >
+            <Plus className="h-6 w-6" />
+          </motion.button>
+        )}
+      </div>
     </motion.div>
   );
 };
+
+// Reusable StatCard Component
+const StatCard = ({ title, value, icon, gradient, bgGradient }) => (
+  <motion.div
+    className={`relative p-4 xl:p-6 bg-gradient-to-br ${bgGradient} rounded-2xl shadow-lg border border-slate-200/50 overflow-hidden group hover:shadow-xl transition-all duration-300`}
+    whileHover={{ y: -2 }}
+  >
+    <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
+    
+    <div className="relative z-10">
+      <div className="flex items-center justify-center xl:justify-between mb-4">
+        <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} text-white shadow-lg`}>
+          {icon}
+        </div>
+        <TrendingUp className="h-5 w-5 hidden lg:block text-slate-400 group-hover:text-slate-600 transition-colors duration-300" />
+      </div>
+      <div className='text-center xl:text-left'>
+        <p className="text-3xl font-bold text-slate-800 mb-1">{value}</p>
+        <p className="text-sm font-medium text-slate-600">{title}</p>
+      </div>
+    </div>
+  </motion.div>
+);
 
 export default WorkerPage;

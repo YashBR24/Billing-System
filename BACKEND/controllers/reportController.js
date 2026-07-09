@@ -7,7 +7,7 @@ const { Parser } = require('json2csv'); // For CSV export
 // @access  Private/Admin
 const   getTransactionReport = async (req, res) => {
   const { companyId, type, paymentMethod, startDate, endDate, month, year, descriptionSearch } = req.query;
-  const query = {};
+  const query = { organizationId: req.organizationId };
 
   if (companyId) query.company = companyId;
   if (type) query.type = type;
@@ -55,7 +55,7 @@ const   getTransactionReport = async (req, res) => {
       else if (t.type === 'OUT') totalOut += t.amount;
     });
 
-    log(`Generated transaction report with query ${JSON.stringify(query)} by ${req.user.email}`, 'info');
+    log(`Generated transaction report with query ${JSON.stringify(query)}`, 'info');
     res.json({ 
         transactions, 
         summary: {
@@ -76,7 +76,7 @@ const   getTransactionReport = async (req, res) => {
 const   exportTransactionReportCSV = async (req, res) => {
   // Re-use the same query logic as getTransactionReport
   const { companyId, type, paymentMethod, startDate, endDate, month, year, descriptionSearch } = req.query;
-  const query = {};
+  const query = { organizationId: req.organizationId };
   if (companyId) query.company = companyId;
   if (type) query.type = type;
   if (paymentMethod) query.paymentMethod = paymentMethod;
@@ -129,7 +129,7 @@ const   exportTransactionReportCSV = async (req, res) => {
     const fileName = `Transaction_Report_${new Date().toISOString().split('T')[0]}.csv`;
     res.header('Content-Type', 'text/csv');
     res.attachment(fileName);
-    log(`Exported transaction report as CSV by ${req.user.email}`, 'info');
+    log(`Exported transaction report as CSV`, 'info');
     return res.send(csv);
 
   } catch (error) {
