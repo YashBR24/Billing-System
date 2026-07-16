@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Debug - Clear Data</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background: #f5f5f5; }
+    .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    h1 { color: #333; }
+    button { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 4px; }
+    .btn-clear { background: #ef4444; color: white; }
+    .btn-clear:hover { background: #dc2626; }
+    .btn-login { background: #3b82f6; color: white; }
+    .btn-login:hover { background: #2563eb; }
+    pre { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+    .status { padding: 8px 12px; border-radius: 4px; margin: 8px 0; }
+    .status.error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .status.success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .status.info { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+  </style>
+</head>
+<body>
+  <h1>Debug Page</h1>
+
+  <div class="card">
+    <h2>Step 1: Clear All Data</h2>
+    <p>This removes corrupted tokens and session data.</p>
+    <button class="btn-clear" onclick="clearAll()">Clear localStorage & sessionStorage</button>
+    <div id="clearStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>Step 2: Test Login</h2>
+    <p>Tests the backend login API directly.</p>
+    <input type="email" id="email" value="superadmin@billing.com" style="padding:8px; width:300px; margin-right:8px;" placeholder="Email" />
+    <input type="password" id="password" value="SuperAdmin@123" style="padding:8px; width:200px; margin-right:8px;" placeholder="Password" />
+    <button class="btn-login" onclick="testLogin()">Test Login</button>
+    <div id="loginStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>Step 3: Test Organizations</h2>
+    <p>Fetches organizations using the token from Step 2.</p>
+    <button onclick="testOrgs()">Fetch Organizations</button>
+    <div id="orgStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>Step 4: Go to App</h2>
+    <p>After steps 1-3 succeed, go to the app.</p>
+    <button onclick="window.location.href='/login'" style="background:#10b981;color:white;">Go to Login Page</button>
+  </div>
+
+  <div class="card">
+    <h2>Current localStorage</h2>
+    <pre id="storageContent">Loading...</pre>
+  </div>
+
+  <script>
+    function showStatus(id, message, type) {
+      document.getElementById(id).innerHTML = `<div class="status ${type}">${message}</div>`;
+    }
+
+    function clearAll() {
+      localStorage.clear();
+      sessionStorage.clear();
+      showStatus('clearStatus', 'All data cleared successfully!', 'success');
+      updateStorage();
+    }
+
+    async function testLogin() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      showStatus('loginStatus', 'Testing...', 'info');
+
+      try {
+        const response = await fetch('http://192.168.29.74:5002/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          localStorage.setItem('user', JSON.stringify(data));
+          showStatus('loginStatus', `Login successful! Token: ${data.token.substring(0, 50)}...<br>needsOrgSelection: ${data.needsOrgSelection}`, 'success');
+          updateStorage();
+        } else {
+          showStatus('loginStatus', `Login failed: ${data.message}`, 'error');
+        }
+      } catch (err) {
+        showStatus('loginStatus', `Network error: ${err.message}`, 'error');
+      }
+    }
+
+    async function testOrgs() {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (!user.token) {
+        showStatus('orgStatus', 'No token found. Please login first.', 'error');
+        return;
+      }
+
+      showStatus('orgStatus', 'Fetching...', 'info');
+
+      try {
+        const response = await fetch('http://192.168.29.74:5002/api/organizations', {
+          headers: { 'Authorization': `Bearer ${user.token}` }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          let html = `Found ${data.length} organization(s):<br><br>`;
+          data.forEach(org => {
+            html += `<strong>${org.name}</strong> (${org.slug}) - ${org.isActive ? 'Active' : 'Inactive'}<br>`;
+            html += `&nbsp;&nbsp;ID: ${org._id}<br>`;
+            html += `&nbsp;&nbsp;Business Type: ${org.businessType}<br>`;
+            html += `&nbsp;&nbsp;Cops Label: ${org.terminology?.copsLabel || 'Cops'}<br><br>`;
+          });
+          showStatus('orgStatus', html, 'success');
+        } else {
+          showStatus('orgStatus', `Failed (Status ${response.status}): ${data.message || 'Unknown error'}`, 'error');
+        }
+      } catch (err) {
+        showStatus('orgStatus', `Network error: ${err.message}`, 'error');
+      }
+    }
+
+    function updateStorage() {
+      const content = document.getElementById('storageContent');
+      const items = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        try {
+          items[key] = JSON.parse(localStorage.getItem(key));
+        } catch {
+          items[key] = localStorage.getItem(key);
+        }
+      }
+      content.textContent = Object.keys(items).length > 0 ? JSON.stringify(items, null, 2) : '(empty)';
+    }
+
+    updateStorage();
+  </script>
+</body>
+</html>

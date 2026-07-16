@@ -135,7 +135,9 @@ async function aggregatePurchases(startDate, endDate, organizationId) {
     const supplierStateCode = extractStateCode(purchase.supplierDetailsSnapshot?.gstNumber) || ownStateCode;
     const interState = isInterState(ownStateCode, supplierStateCode);
 
-    const baseAmount = purchase.subTotal || purchase.amount || 0;
+    const baseAmount = purchase.purchaseType === 'OTHER'
+      ? (purchase.amount - (purchase.cgst || 0) - (purchase.sgst || 0))
+      : (purchase.subTotal || purchase.amount || 0);
     const cgstAmt = purchase.cgst || 0;
     const sgstAmt = purchase.sgst || 0;
     const igstAmt = purchase.igst || 0;

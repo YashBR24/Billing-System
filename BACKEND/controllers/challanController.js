@@ -214,7 +214,7 @@ const getChallans = async (req, res) => {
     const challans = await Challan.find(query)
       .populate('company', 'name gstNumber')
       .populate('createdBy', 'username email')
-      .sort({ challanDate: -1 });
+      .sort({ challanNumber: -1 });
 
     res.json(challans);
   } catch (error) {
@@ -256,7 +256,7 @@ const getChallansByCompany = async (req, res) => {
       isUsed: false,
       _id: { $nin: usedChallanIds },
       organizationId: req.organizationId
-    });
+    }).sort({ challanNumber: 1 });
 
     res.json(challans);
 
