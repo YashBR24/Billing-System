@@ -3177,7 +3177,7 @@ const PurchaseListPage = () => {
       delete submissionData.cgst;
       delete submissionData.sgst;
     } else {
-      submissionData.amount = parseFloat(formData.amount);
+      submissionData.amount = parseFloat(formData.baseAmount);
       submissionData.cgst = parseFloat(formData.cgst || 0);
       submissionData.sgst = parseFloat(formData.sgst || 0);
       delete submissionData.challanNumber;

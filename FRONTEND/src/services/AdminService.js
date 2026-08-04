@@ -1,43 +1,29 @@
-import axios from 'axios';
-import AuthService from './AuthService';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-const getAuthHeaders = () => {
-  const user = AuthService.getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: 'Bearer ' + user.token };
-  } else {
-    console.error("User token not found for admin service.");
-    return {};
-  }
-};
+import api from '../utils/axiosConfig';
 
 const getAllUsers = () => {
-  return axios.get(API_BASE_URL + '/auth/users', { headers: getAuthHeaders() });
+  return api.get('/auth/users');
 };
 
 const getUsersByOrg = (organizationId) => {
   const params = {};
   if (organizationId) params.organizationId = organizationId;
-  return axios.get(API_BASE_URL + '/auth/users/by-org', { headers: getAuthHeaders(), params });
+  return api.get('/auth/users/by-org', { params });
 };
 
 const createUser = (userData) => {
-  return axios.post(API_BASE_URL + '/auth/users', userData, { headers: getAuthHeaders() });
+  return api.post('/auth/users', userData);
 };
 
 const updateUser = (userId, userData) => {
-  return axios.put(API_BASE_URL + `/auth/users/${userId}`, userData, { headers: getAuthHeaders() });
+  return api.put(`/auth/users/${userId}`, userData);
 };
 
 const deleteUser = (userId) => {
-  return axios.delete(API_BASE_URL + `/auth/users/${userId}`, { headers: getAuthHeaders() });
+  return api.delete(`/auth/users/${userId}`);
 };
 
 const getAllLogs = (page = 1, limit = 100) => {
-  return axios.get(API_BASE_URL + '/logs', { 
-    headers: getAuthHeaders(),
+  return api.get('/logs', {
     params: { page, limit }
   });
 };

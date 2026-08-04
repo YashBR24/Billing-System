@@ -24,6 +24,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import LedgerService from '../../services/ComapnyLedgerService';
 import CompanyService from '../../services/CompanyService';
+import CompanyBillModal from './CompanyBillModal';
 import moment from 'moment';
 
 const LedgerListPage = () => {
@@ -58,6 +59,7 @@ const LedgerListPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [currentEntryIndex, setCurrentEntryIndex] = useState(0);
   const [currentSummaryIndex, setCurrentSummaryIndex] = useState(0);
+  const [billModalCompany, setBillModalCompany] = useState(null);
 
   useEffect(() => { setCurrentEntryIndex(0); }, [ledgerData?.ledgerEntries]);
   useEffect(() => { setCurrentSummaryIndex(0); }, [companiesSummary]);
@@ -1135,6 +1137,17 @@ const LedgerListPage = () => {
     setSelectedEntry(null);
   };
 
+  const handleCompanyRowClick = (summary) => {
+    setBillModalCompany({
+      companyId: summary.company._id,
+      companyName: summary.company.name,
+    });
+  };
+
+  const closeBillModal = () => {
+    setBillModalCompany(null);
+  };
+
   useEffect(() => {
     const handleEsc = (event) => { if (event.key === 'Escape' && isModalOpen) closeModal(); };
     window.addEventListener('keydown', handleEsc);
@@ -1383,6 +1396,17 @@ const LedgerListPage = () => {
           )}
         </AnimatePresence>
 
+        {/* Company Bill Modal */}
+        <AnimatePresence>
+          {billModalCompany && (
+            <CompanyBillModal
+              companyId={billModalCompany.companyId}
+              companyName={billModalCompany.companyName}
+              onClose={closeBillModal}
+            />
+          )}
+        </AnimatePresence>
+
         {/* Error */}
         <AnimatePresence>
           {error && (
@@ -1460,7 +1484,7 @@ const LedgerListPage = () => {
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
                       {companiesSummary.map((summary, index) => (
-                        <motion.tr key={summary.company._id} className="hover:bg-slate-50 transition-colors" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.05 }}>
+                        <motion.tr key={summary.company._id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => handleCompanyRowClick(summary)} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.05 }}>
                           <td className="px-4 py-3 text-sm text-slate-600 font-medium">{summary.company.name}</td>
                           <td className="px-4 py-3 text-sm text-right font-semibold text-blue-700">Rs.{summary.totals.totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                           <td className="px-4 py-3 text-sm text-right font-semibold text-orange-700">Rs.{summary.totals.totalPurchases.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
@@ -1560,7 +1584,7 @@ const LedgerListPage = () => {
                   </div>
                 </div>
                 <div className="relative">
-                  <motion.div key={companiesSummary[currentSummaryIndex].company._id} className="bg-white/80 backdrop-blur-sm rounded-xl border p-4 hover:shadow-2xl hover:scale-105 transition-all duration-300" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+                  <motion.div key={companiesSummary[currentSummaryIndex].company._id} className="bg-white/80 backdrop-blur-sm rounded-xl border p-4 hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer" onClick={() => handleCompanyRowClick(companiesSummary[currentSummaryIndex])} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
                     <div className="flex items-center gap-2.5 mb-3">
                       <div className="p-2 bg-slate-100 rounded-lg shrink-0"><Building2 className="h-4 w-4 text-slate-600" /></div>
                       <h3 className="font-semibold text-slate-800 text-base truncate">{companiesSummary[currentSummaryIndex].company.name}</h3>

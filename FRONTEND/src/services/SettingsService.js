@@ -1,44 +1,26 @@
-import axios from 'axios';
-import AuthService from './AuthService';
+import api from '../utils/axiosConfig';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL + '/settings/';
-
-const getAuthHeaders = () => {
-  const user = AuthService.getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: 'Bearer ' + user.token };
-  } else {
-    // Handle cases where user might not be logged in or token is missing
-    // This might involve redirecting to login or throwing an error
-    console.error("User token not found for settings service.");
-    return {}; 
-  }
-};
+const API_URL = '/settings/';
 
 const getSettings = () => {
-  return axios.get(API_URL, { headers: getAuthHeaders() });
+  return api.get(API_URL);
 };
 
 const updateSettings = (settingsData) => {
-  // This endpoint in the backend expects the full settings object or specific fields like
-  // sgstPercentage, cgstPercentage, igstPercentage, and the full itemConfigurations array.
-  return axios.put(API_URL, settingsData, { headers: getAuthHeaders() });
+  return api.put(API_URL, settingsData);
 };
 
-// --- Item Configuration Specific Methods ---
-
 const addItemConfiguration = (itemConfigData) => {
-  return axios.post(API_URL + 'item-configurations', itemConfigData, { headers: getAuthHeaders() });
+  return api.post(API_URL + 'item-configurations', itemConfigData);
 };
 
 const updateItemConfiguration = (itemId, itemConfigData) => {
-  return axios.put(API_URL + 'item-configurations/' + itemId, itemConfigData, { headers: getAuthHeaders() });
+  return api.put(API_URL + 'item-configurations/' + itemId, itemConfigData);
 };
 
 const deleteItemConfiguration = (itemId) => {
-  return axios.delete(API_URL + 'item-configurations/' + itemId, { headers: getAuthHeaders() });
+  return api.delete(API_URL + 'item-configurations/' + itemId);
 };
-
 
 const SettingsService = {
   getSettings,

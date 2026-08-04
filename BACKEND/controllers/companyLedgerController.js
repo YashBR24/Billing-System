@@ -1841,7 +1841,7 @@ const { getOrgDetails } = require('../utils/orgDetails');
 // @route   GET /api/ledger/company
 // @access  Private/Admin
 const getCompanyLedger = async (req, res) => {
-  const { companyId, startDate, endDate, month, year } = req.query;
+  const { companyId, startDate, endDate, month, year, financialYear } = req.query;
 
   if (!companyId) {
     return res.status(400).json({ message: 'Company ID is required.' });
@@ -1855,7 +1855,15 @@ const getCompanyLedger = async (req, res) => {
     }
 
     let dateFilter = {};
-    if (month && year) {
+    if (financialYear && financialYear !== 'all') {
+      const fyParts = financialYear.split('-');
+      const startYear = parseInt(fyParts[0], 10);
+      const fyStart = new Date(startYear, 3, 1);
+      fyStart.setHours(0, 0, 0, 0);
+      const fyEnd = new Date(startYear + 1, 2, 31);
+      fyEnd.setHours(23, 59, 59, 999);
+      dateFilter = { $gte: fyStart, $lte: fyEnd };
+    } else if (month && year) {
       const start = moment(`${year}-${month}-01`, 'YYYY-MM-DD').startOf('month').toDate();
       const end = moment(start).endOf('month').toDate();
       dateFilter = { $gte: start, $lte: end };
@@ -3638,9 +3646,201 @@ const prepareCompanyLedgerData = async (companyId, startDate, endDate, month, ye
   };
 };
 
+// @desc    Get company bill summary for modal
+// @route   GET /api/ledger/company-bills
+// @access  Private/Admin
+const getCompanyBillSummary = async (req, res) => {
+  const { companyId, financialYear, startDate, endDate } = req.query;
+
+  if (!companyId) {
+    return res.status(400).json({ message: 'Company ID is required.' });
+  }
+
+  try {
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found.' });
+    }
+
+    let billDateFilter = {};
+    if (financialYear && financialYear !== 'all') {
+      const fyParts = financialYear.split('-');
+      const startYear = parseInt(fyParts[0], 10);
+      const fyStart = new Date(startYear, 3, 1);
+      fyStart.setHours(0, 0, 0, 0);
+      const fyEnd = new Date(startYear + 1, 2, 31);
+      fyEnd.setHours(23, 59, 59, 999);
+      billDateFilter = { $gte: fyStart, $lte: fyEnd };
+    } else if (startDate && endDate) {
+      billDateFilter = {
+        $gte: new Date(startDate),
+        $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
+      };
+    }
+
+    const [allBills, filteredBills] = await Promise.all([
+      Bill.find({
+        company: companyId,
+        organizationId: req.organizationId,
+      }).sort({ billDate: -1 }),
+      Bill.find({
+        company: companyId,
+        organizationId: req.organizationId,
+        ...(Object.keys(billDateFilter).length > 0 && { billDate: billDateFilter }),
+      }).sort({ billDate: -1 }),
+    ]);
+
+    const billsWithStatus = allBills.map(bill => {
+      const outstanding = bill.totalAmount - bill.totalPaidAmount;
+      const now = new Date();
+      let computedStatus = bill.status;
+      if (computedStatus !== 'Cancelled') {
+        if (outstanding <= 0) {
+          computedStatus = 'Paid';
+        } else if (bill.dueDate && new Date(bill.dueDate) < now) {
+          computedStatus = 'Overdue';
+        } else if (bill.totalPaidAmount > 0) {
+          computedStatus = 'Partially Paid';
+        } else {
+          computedStatus = 'Pending';
+        }
+      }
+      return {
+        _id: bill._id,
+        billNumber: bill.billNumber,
+        billDate: bill.billDate,
+        dueDate: bill.dueDate,
+        totalAmount: bill.totalAmount,
+        totalPaidAmount: bill.totalPaidAmount,
+        outstanding: Math.max(0, outstanding),
+        status: computedStatus,
+        paymentRecords: bill.paymentRecords,
+        challanNumber: bill.challanNumber,
+        financialYear: bill.financialYear,
+      };
+    });
+
+    const filteredBillsWithStatus = filteredBills.map(bill => {
+      const outstanding = bill.totalAmount - bill.totalPaidAmount;
+      const now = new Date();
+      let computedStatus = bill.status;
+      if (computedStatus !== 'Cancelled') {
+        if (outstanding <= 0) {
+          computedStatus = 'Paid';
+        } else if (bill.dueDate && new Date(bill.dueDate) < now) {
+          computedStatus = 'Overdue';
+        } else if (bill.totalPaidAmount > 0) {
+          computedStatus = 'Partially Paid';
+        } else {
+          computedStatus = 'Pending';
+        }
+      }
+      return {
+        _id: bill._id,
+        billNumber: bill.billNumber,
+        billDate: bill.billDate,
+        dueDate: bill.dueDate,
+        totalAmount: bill.totalAmount,
+        totalPaidAmount: bill.totalPaidAmount,
+        outstanding: Math.max(0, outstanding),
+        status: computedStatus,
+        paymentRecords: bill.paymentRecords,
+        challanNumber: bill.challanNumber,
+        financialYear: bill.financialYear,
+      };
+    });
+
+    const totalBills = allBills.length;
+    const paidBills = billsWithStatus.filter(b => b.status === 'Paid').length;
+    const outstandingBills = billsWithStatus.filter(b => b.status === 'Pending' || b.status === 'Partially Paid').length;
+    const overdueBills = billsWithStatus.filter(b => b.status === 'Overdue').length;
+    const totalOutstandingAmount = billsWithStatus.reduce((sum, b) => sum + b.outstanding, 0);
+    const totalReceivedAmount = billsWithStatus.reduce((sum, b) => sum + b.totalPaidAmount, 0);
+
+    let lastBillDate = null;
+    let lastPaymentDate = null;
+    let totalPaymentDays = 0;
+    let paymentCount = 0;
+
+    billsWithStatus.forEach(bill => {
+      if (!lastBillDate || new Date(bill.billDate) > new Date(lastBillDate)) {
+        lastBillDate = bill.billDate;
+      }
+      (bill.paymentRecords || []).forEach(rec => {
+        if (!lastPaymentDate || new Date(rec.paymentDate) > new Date(lastPaymentDate)) {
+          lastPaymentDate = rec.paymentDate;
+        }
+        const daysDiff = Math.ceil((new Date(rec.paymentDate) - new Date(bill.billDate)) / (1000 * 60 * 60 * 24));
+        if (daysDiff >= 0) {
+          totalPaymentDays += daysDiff;
+          paymentCount++;
+        }
+      });
+    });
+
+    const availableFinancialYears = [...new Set(allBills.map(b => b.financialYear).filter(Boolean))].sort().reverse();
+
+    const response = {
+      company: {
+        _id: company._id,
+        name: company.name,
+        gstNumber: company.gstNumber,
+        companyType: company.companyType || '',
+      },
+      summary: {
+        totalBills,
+        paidBills,
+        outstandingBills,
+        overdueBills,
+        totalOutstandingAmount,
+        totalReceivedAmount,
+        lastBillDate,
+        lastPaymentDate,
+        averagePaymentDays: paymentCount > 0 ? Math.round(totalPaymentDays / paymentCount) : 0,
+      },
+      bills: filteredBillsWithStatus,
+      availableFinancialYears,
+      totalFilteredBills: filteredBillsWithStatus.length,
+    };
+
+    res.json(response);
+  } catch (error) {
+    log(`Error getting company bill summary: ${error.message} - Stack: ${error.stack}`, 'error');
+    res.status(500).json({ message: 'Server error while fetching company bill summary.' });
+  }
+};
+
+// @desc    Get available financial years for a company
+// @route   GET /api/ledger/company-financial-years
+// @access  Private/Admin
+const getCompanyFinancialYears = async (req, res) => {
+  const { companyId } = req.query;
+
+  try {
+    const filter = { organizationId: req.organizationId };
+    const purchaseFilter = { organizationId: req.organizationId };
+    if (companyId && companyId !== 'all') {
+      filter.company = companyId;
+      purchaseFilter.supplierCompany = companyId;
+    }
+
+    const financialYears = await Bill.distinct('financialYear', filter);
+    const purchaseFYs = await Purchase.distinct('financialYear', purchaseFilter);
+
+    const allFYs = [...new Set([...financialYears, ...purchaseFYs])].filter(Boolean).sort().reverse();
+
+    res.json({ financialYears: allFYs });
+  } catch (error) {
+    log(`Error getting financial years: ${error.message}`, 'error');
+    res.status(500).json({ message: 'Server error while fetching financial years.' });
+  }
+};
+
 module.exports = {
   getCompanyLedger,
   getCompaniesLedgerSummary,
   downloadCompanyLedgerExcel,
-  downloadCompanyLedgerPDF
+  downloadCompanyLedgerPDF,
+  getCompanyBillSummary,
+  getCompanyFinancialYears
 };

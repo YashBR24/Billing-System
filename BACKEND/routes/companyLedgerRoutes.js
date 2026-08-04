@@ -3,7 +3,9 @@ const router = express.Router();
 const { getCompanyLedger,
     getCompaniesLedgerSummary,
   downloadCompanyLedgerExcel,
-  downloadCompanyLedgerPDF
+  downloadCompanyLedgerPDF,
+  getCompanyBillSummary,
+  getCompanyFinancialYears
 } = require('../controllers/companyLedgerController');
 const { protect, isAdmin } = require('../middleware/authMiddleware');
 
@@ -16,6 +18,12 @@ router.route('/company')
 
 router.route('/companies-summary')
   .get(getCompaniesLedgerSummary);
+
+router.route('/company-bills')
+  .get(getCompanyBillSummary);
+
+router.route('/company-financial-years')
+  .get(getCompanyFinancialYears);
 
 router.route('/excel')
   .get(  downloadCompanyLedgerExcel);

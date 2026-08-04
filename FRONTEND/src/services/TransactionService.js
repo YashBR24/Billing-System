@@ -1,54 +1,38 @@
+import api from '../utils/axiosConfig';
 
-import axios from 'axios';
-import AuthService from './AuthService';
-
-const API_URL = import.meta.env.VITE_API_BASE_URL + '/transactions/';
-
-const getAuthHeaders = () => {
-  const user = AuthService.getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: 'Bearer ' + user.token };
-  } else {
-    console.error("User token not found for transaction service.");
-    return {};
-  }
-};
+const API_URL = '/transactions/';
 
 const createTransaction = (transactionData) => {
-  return axios.post(API_URL, transactionData, { headers: getAuthHeaders() });
+  return api.post(API_URL, transactionData);
 };
 
-const getAllTransactions = (params = {}) => { 
-  // params: { companyId?, type?, paymentMethod?, startDate?, endDate?, month?, year? }
-  return axios.get(API_URL, { headers: getAuthHeaders(), params });
+const getAllTransactions = (params = {}) => {
+  return api.get(API_URL, { params });
 };
 
 const getTransactionById = (id) => {
-  return axios.get(API_URL + id, { headers: getAuthHeaders() });
+  return api.get(API_URL + id);
 };
 
 const updateTransaction = (id, transactionData) => {
-  return axios.put(API_URL + id, transactionData, { headers: getAuthHeaders() });
+  return api.put(API_URL + id, transactionData);
 };
 
 const deleteTransaction = (id) => {
-  return axios.delete(API_URL + id, { headers: getAuthHeaders() });
+  return api.delete(API_URL + id);
 };
 
 const getFilteredSummary = (params = {}) => {
-  return axios.get(API_URL + 'summary', { headers: getAuthHeaders(), params });
+  return api.get(API_URL + 'summary', { params });
 };
 
-// New export functions
 const exportToExcel = (params = {}, fileName = 'transactions') => {
-  return axios({
+  return api({
     url: API_URL + 'export/excel',
     method: 'GET',
-    headers: getAuthHeaders(),
     params: params,
-    responseType: 'blob', // Important for file download
+    responseType: 'blob',
   }).then((response) => {
-    // Create download link
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
@@ -60,14 +44,12 @@ const exportToExcel = (params = {}, fileName = 'transactions') => {
 };
 
 const exportToPDF = (params = {}, fileName = 'transactions') => {
-  return axios({
+  return api({
     url: API_URL + 'export/pdf',
     method: 'GET',
-    headers: getAuthHeaders(),
     params: params,
-    responseType: 'blob', // Important for file download
+    responseType: 'blob',
   }).then((response) => {
-    // Create download link
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
@@ -85,8 +67,8 @@ const TransactionService = {
   getTransactionById,
   updateTransaction,
   deleteTransaction,
-  exportToExcel, 
-  exportToPDF,   
+  exportToExcel,
+  exportToPDF,
 };
 
 export default TransactionService;

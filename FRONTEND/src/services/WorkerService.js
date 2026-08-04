@@ -1,36 +1,25 @@
-import axios from 'axios';
-import AuthService from './AuthService';
+import api from '../utils/axiosConfig';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL + '/workers/';
+const API_URL = '/workers/';
 
-const getAuthHeaders = () => {
-  const user = AuthService.getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: 'Bearer ' + user.token };
-  } else {
-    console.error("User token not found for worker service.");
-    return {};
-  }
-};
-
-const getAllWorkers = (params = {}) => { // params can include { active: true/false }
-  return axios.get(API_URL, { headers: getAuthHeaders(), params });
+const getAllWorkers = (params = {}) => {
+  return api.get(API_URL, { params });
 };
 
 const getWorkerById = (id) => {
-  return axios.get(API_URL + id, { headers: getAuthHeaders() });
+  return api.get(API_URL + id);
 };
 
 const createWorker = (workerData) => {
-  return axios.post(API_URL, workerData, { headers: getAuthHeaders() });
+  return api.post(API_URL, workerData);
 };
 
 const updateWorker = (id, workerData) => {
-  return axios.put(API_URL + id, workerData, { headers: getAuthHeaders() });
+  return api.put(API_URL + id, workerData);
 };
 
 const deleteWorker = (id) => {
-  return axios.delete(API_URL + id, { headers: getAuthHeaders() });
+  return api.delete(API_URL + id);
 };
 
 const WorkerService = {

@@ -1,35 +1,25 @@
-import axios from 'axios';
-import AuthService from './AuthService';
+import api from '../utils/axiosConfig';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL + '/companies/';
+const API_URL = '/companies/';
 
-const getAuthHeaders = () => {
-  const user = AuthService.getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: 'Bearer ' + user.token };
-  } else {
-    return {};
-  }
-};
-
-const getAllCompanies = (params = {}) => { // Accept params object
-  return axios.get(API_URL, { headers: getAuthHeaders(), params }); // Pass params to axios
+const getAllCompanies = (params = {}) => {
+  return api.get(API_URL, { params });
 };
 
 const getCompanyById = (id) => {
-  return axios.get(API_URL + id, { headers: getAuthHeaders() });
+  return api.get(API_URL + id);
 };
 
 const createCompany = (companyData) => {
-  return axios.post(API_URL, companyData, { headers: getAuthHeaders() });
+  return api.post(API_URL, companyData);
 };
 
 const updateCompany = (id, companyData) => {
-  return axios.put(API_URL + id, companyData, { headers: getAuthHeaders() });
+  return api.put(API_URL + id, companyData);
 };
 
 const deleteCompany = (id) => {
-  return axios.delete(API_URL + id, { headers: getAuthHeaders() });
+  return api.delete(API_URL + id);
 };
 
 const CompanyService = {

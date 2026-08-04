@@ -1,9 +1,9 @@
-import axios from 'axios';
+import api from '../utils/axiosConfig';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL + '/auth/';
+const API_URL = '/auth/';
 
 const signup = (username, email, password, role = 'admin') => {
-  return axios.post(API_URL + 'signup', {
+  return api.post(API_URL + 'signup', {
     username,
     email,
     password,
@@ -12,7 +12,7 @@ const signup = (username, email, password, role = 'admin') => {
 };
 
 const login = (email, password) => {
-  return axios
+  return api
     .post(API_URL + 'login', {
       email,
       password,

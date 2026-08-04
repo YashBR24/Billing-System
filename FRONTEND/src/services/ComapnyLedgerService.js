@@ -1,61 +1,44 @@
-import axios from 'axios';
-import AuthService from './AuthService';
+import api from '../utils/axiosConfig';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL + '/company-ledger/';
+const API_URL = '/company-ledger/';
 
-const getAuthHeaders = () => {
-  const user = AuthService.getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: 'Bearer ' + user.token };
-  } else {
-    console.error("User token not found for ledger service.");
-    return {};
-  }
-};
-
-// Fetch company ledger with filters
 const getCompanyLedger = (params = {}) => {
-  return axios.get(API_URL + 'company', {
-    headers: getAuthHeaders(),
-    params
-  });
+  return api.get(API_URL + 'company', { params });
 };
 
-// Fetch all companies ledger summary
 const getCompaniesLedgerSummary = (params = {}) => {
-  return axios.get(API_URL + 'companies-summary', {
-    headers: getAuthHeaders(),
-    params
-  });
+  return api.get(API_URL + 'companies-summary', { params });
 };
 
-// Download company ledger as Excel
+const getCompanyBillSummary = (params = {}) => {
+  return api.get(API_URL + 'company-bills', { params });
+};
+
+const getCompanyFinancialYears = (params = {}) => {
+  return api.get(API_URL + 'company-financial-years', { params });
+};
+
 const downloadCompanyLedgerExcel = (params = {}) => {
-  return axios.get(API_URL + 'excel', {
-    headers: getAuthHeaders(),
+  return api.get(API_URL + 'excel', {
     params,
     responseType: 'blob',
   });
 };
 
-// Download company ledger as PDF
 export const downloadCompanyLedgerPDF = (params) => {
-  // Ensure companyId is always included
   const downloadParams = {
-    companyId: params.companyId || 'all', // Default to 'all' if not specified
+    companyId: params.companyId || 'all',
     startDate: params.startDate,
     endDate: params.endDate,
     month: params.month,
     year: params.year
   };
-  return axios.get(API_URL + 'pdf', {
-    headers: getAuthHeaders(),
+  return api.get(API_URL + 'pdf', {
     params: downloadParams,
     responseType: 'blob',
   });
 };
 
-// Helper function to trigger file download
 const triggerDownload = (blobData, fileName) => {
   const url = window.URL.createObjectURL(new Blob([blobData]));
   const link = document.createElement('a');
@@ -70,6 +53,8 @@ const triggerDownload = (blobData, fileName) => {
 const LedgerService = {
   getCompanyLedger,
   getCompaniesLedgerSummary,
+  getCompanyBillSummary,
+  getCompanyFinancialYears,
   downloadCompanyLedgerExcel,
   downloadCompanyLedgerPDF,
   triggerDownload

@@ -1,40 +1,24 @@
-import axios from 'axios';
-import AuthService from './AuthService';
+import api from '../utils/axiosConfig';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL + '/interest-notes/';
-
-const getAuthHeaders = () => {
-  const user = AuthService.getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: 'Bearer ' + user.token };
-  } else {
-    console.error('User token not found for interest note service.');
-    return {};
-  }
-};
-
-// ─── Basic CRUD ───────────────────────────────────────────────────────────────
+const API_URL = '/interest-notes/';
 
 const createInterestNote = (data) =>
-  axios.post(API_URL, data, { headers: getAuthHeaders() });
+  api.post(API_URL, data);
 
 const getAllInterestNotes = (params = {}) =>
-  axios.get(API_URL, { headers: getAuthHeaders(), params });
+  api.get(API_URL, { params });
 
 const getInterestNoteById = (id) =>
-  axios.get(API_URL + id, { headers: getAuthHeaders() });
+  api.get(API_URL + id);
 
 const updateInterestNote = (id, data) =>
-  axios.put(API_URL + id, data, { headers: getAuthHeaders() });
+  api.put(API_URL + id, data);
 
 const deleteInterestNote = (id) =>
-  axios.delete(API_URL + id, { headers: getAuthHeaders() });
-
-// ─── PDF ──────────────────────────────────────────────────────────────────────
+  api.delete(API_URL + id);
 
 const downloadInterestNotePdf = (id) =>
-  axios.get(API_URL + id + '/pdf', {
-    headers: getAuthHeaders(),
+  api.get(API_URL + id + '/pdf', {
     responseType: 'blob',
   });
 
@@ -49,37 +33,16 @@ const triggerDownload = (blobData, fileName) => {
   window.URL.revokeObjectURL(url);
 };
 
-// ─── Interest-note-specific helpers ──────────────────────────────────────────
-
-/**
- * Fetch the next auto-generated interest note number for a given financial year.
- * GET /api/interest-notes/next-number?financialYear=2025-26
- * Returns { interestNoteNumber: "2025-26/IN/03", financialYear: "2025-26" }
- */
 const getNextInterestNoteNumber = (financialYear) =>
-  axios.get(API_URL + 'next-number', {
-    headers: getAuthHeaders(),
+  api.get(API_URL + 'next-number', {
     params: { financialYear },
   });
 
-/**
- * Fetch paid bills where paymentDate > dueDate for a given company + FY.
- * GET /api/interest-notes/late-paid-bills?companyId=xxx&financialYear=2025-26
- * Returns enriched array: [{ _id, billNumber, billDate, dueDate, paymentDate,
- *   totalAmount, lateDays, perDayRate, financialYear, company }]
- */
 const getLatePaidBillsByCompany = (companyId, financialYear) =>
-  axios.get(API_URL + 'late-paid-bills', {
-    headers: getAuthHeaders(),
+  api.get(API_URL + 'late-paid-bills', {
     params: { companyId, financialYear },
   });
 
-// ─── Utility: financial year helpers (mirrors backend logic) ─────────────────
-
-/**
- * Returns "YYYY-YY" string for the Indian financial year that contains `date`.
- * April 2025 – March 2026 → "2025-26"
- */
 const getFinancialYear = (date = new Date()) => {
   const d = new Date(date);
   const month = d.getMonth();
@@ -90,10 +53,6 @@ const getFinancialYear = (date = new Date()) => {
   return `${year - 1}-${String(year).slice(-2)}`;
 };
 
-/**
- * Build a list of financial year options for dropdowns.
- * e.g. ["2023-24", "2024-25", "2025-26"]
- */
 const getFinancialYearOptions = (yearsBack = 3) => {
   const current = getFinancialYear();
   const [startStr] = current.split('-');
@@ -107,19 +66,6 @@ const getFinancialYearOptions = (yearsBack = 3) => {
   return options;
 };
 
-// ─── Client-side interest preview calculator (mirrors backend formula) ────────
-
-/**
- * Calculate interest amount for UI preview before submission.
- *
- * perDayRate      = (billTotalAmount × monthlyRate%) / 30
- * interestAmount  = perDayRate × lateDays
- *
- * @param {number} billTotalAmount
- * @param {number} monthlyInterestRate  – e.g. 18 for 18%/month
- * @param {number} lateDays
- * @returns {{ perDayRate: number, interestAmount: number }}
- */
 const calcInterestPreview = (billTotalAmount, monthlyInterestRate, lateDays) => {
   const perDayRate     = parseFloat(((billTotalAmount * (monthlyInterestRate / 100)) / 30).toFixed(4));
   const interestAmount = parseFloat((perDayRate * lateDays).toFixed(2));
@@ -127,19 +73,15 @@ const calcInterestPreview = (billTotalAmount, monthlyInterestRate, lateDays) => 
 };
 
 const InterestNoteService = {
-  // CRUD
   createInterestNote,
   getAllInterestNotes,
   getInterestNoteById,
   updateInterestNote,
   deleteInterestNote,
-  // PDF
   downloadInterestNotePdf,
   triggerDownload,
-  // Lookups
   getNextInterestNoteNumber,
   getLatePaidBillsByCompany,
-  // Utilities
   getFinancialYear,
   getFinancialYearOptions,
   calcInterestPreview,

@@ -1,22 +1,10 @@
-import axios from 'axios';
-import AuthService from './AuthService';
+import api from '../utils/axiosConfig';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL + '/attendance/';
-
-const getAuthHeaders = () => {
-  const user = AuthService.getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: 'Bearer ' + user.token };
-  }
-  console.error("User token not found for attendance service.");
-  return {};
-};
+const API_URL = '/attendance/';
 
 const recordAttendance = async (attendanceData) => {
   try {
-    const response = await axios.post(API_URL, attendanceData, {
-      headers: getAuthHeaders()
-    });
+    const response = await api.post(API_URL, attendanceData);
     return response.data;
   } catch (error) {
     console.error("Error recording attendance:", error);
@@ -26,9 +14,7 @@ const recordAttendance = async (attendanceData) => {
 
 const recordBulkAttendance = async (bulkData) => {
   try {
-    const response = await axios.post(API_URL + 'bulk', bulkData, {
-      headers: getAuthHeaders()
-    });
+    const response = await api.post(API_URL + 'bulk', bulkData);
     return response.data;
   } catch (error) {
     console.error("Error recording bulk attendance:", error);
@@ -38,22 +24,14 @@ const recordBulkAttendance = async (bulkData) => {
 
 const getAttendanceRecords = async (params = {}) => {
   try {
-    const config = {
-      headers: getAuthHeaders(),
-      params
-    };
-
+    const config = { params };
     if (params.format === 'pdf') {
       config.responseType = 'blob';
     }
-
-    const response = await axios.get(API_URL, config);
-    
-    // For PDF requests, return the full response object so we can access the blob
+    const response = await api.get(API_URL, config);
     if (params.format === 'pdf') {
       return response;
     }
-    
     return response.data;
   } catch (error) {
     console.error("Error fetching attendance records:", error);
@@ -63,22 +41,14 @@ const getAttendanceRecords = async (params = {}) => {
 
 const getAttendanceReport = async (params = {}) => {
   try {
-    const config = {
-      headers: getAuthHeaders(),
-      params
-    };
-
+    const config = { params };
     if (params.format === 'pdf') {
       config.responseType = 'blob';
     }
-
-    const response = await axios.get(API_URL + 'report', config);
-    
-    // For PDF requests, return the full response object so we can access the blob
+    const response = await api.get(API_URL + 'report', config);
     if (params.format === 'pdf') {
       return response;
     }
-    
     return response.data;
   } catch (error) {
     console.error("Error fetching attendance report:", error);
@@ -88,9 +58,7 @@ const getAttendanceReport = async (params = {}) => {
 
 const updateAttendance = async (id, attendanceData) => {
   try {
-    const response = await axios.put(API_URL + id, attendanceData, {
-      headers: getAuthHeaders()
-    });
+    const response = await api.put(API_URL + id, attendanceData);
     return response.data;
   } catch (error) {
     console.error("Error updating attendance:", error);

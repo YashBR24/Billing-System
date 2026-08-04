@@ -41,6 +41,8 @@ const createTransaction = async (req, res) => {
   }
 
   try {
+    let savedTransaction = null;
+
     let companyObjectId = null;
     if (companyId) {
       const company = await Company.findById(companyId);
@@ -98,7 +100,7 @@ const createTransaction = async (req, res) => {
     };
 
     const newTransaction = new Transaction(initialTransactionData);
-    const savedTransaction = await newTransaction.save();
+    savedTransaction = await newTransaction.save();
 
     let needsTransactionUpdate = false;
 
@@ -114,23 +116,44 @@ const createTransaction = async (req, res) => {
     ) {
       let billNumbers = [];
 
+      const billDocs = [];
       for (const billId of relatedBillIds) {
         const bill = await Bill.findById(billId);
-        if (!bill) continue;
+        if (bill) billDocs.push(bill);
+      }
 
-        const remaining = bill.totalAmount - bill.totalPaidAmount;
+      const totalOutstanding = billDocs.reduce(
+        (sum, b) => sum + Math.max(0, b.totalAmount - b.totalPaidAmount),
+        0
+      );
 
-        if (remaining > 0) {
+      let remainingAmount = parseFloat(amount);
+      for (const bill of billDocs) {
+        const billOutstanding = Math.max(0, bill.totalAmount - bill.totalPaidAmount);
+        if (billOutstanding <= 0 || totalOutstanding <= 0) continue;
+
+        const proportion = billOutstanding / totalOutstanding;
+        let amountForThisBill = Math.min(
+          Math.round(remainingAmount * proportion * 100) / 100,
+          billOutstanding
+        );
+
+        if (amountForThisBill > remainingAmount) {
+          amountForThisBill = Math.min(remainingAmount, billOutstanding);
+        }
+        remainingAmount = Math.round((remainingAmount - amountForThisBill) * 100) / 100;
+
+        if (amountForThisBill > 0) {
           bill.paymentRecords.push({
             paymentDate: savedTransaction.paymentDate,
-            amountPaid: remaining,
+            amountPaid: amountForThisBill,
             transactionId: savedTransaction._id,
             paymentMethod,
             referenceNumber,
             notes: `Bill payment via transaction ${savedTransaction._id}`,
           });
 
-          bill.totalPaidAmount += remaining;
+          bill.totalPaidAmount += amountForThisBill;
           await bill.save();
         }
 
@@ -154,35 +177,50 @@ const createTransaction = async (req, res) => {
     ) {
       let interestNoteNumbers = [];
 
+      const noteDocs = [];
       for (const noteId of relatedInterestNoteIds) {
         const interestNote = await InterestNote.findById(noteId);
+        if (interestNote) noteDocs.push(interestNote);
+      }
 
-        if (!interestNote) continue;
+      const totalOutstanding = noteDocs.reduce(
+        (sum, n) => sum + Math.max(0, n.totalAmount - (n.totalPaidAmount || 0)),
+        0
+      );
 
-        interestNote.paymentRecords =
-          interestNote.paymentRecords || [];
-        interestNote.totalPaidAmount =
-          interestNote.totalPaidAmount || 0;
+      let remainingAmount = parseFloat(amount);
+      for (const interestNote of noteDocs) {
+        interestNote.paymentRecords = interestNote.paymentRecords || [];
+        interestNote.totalPaidAmount = interestNote.totalPaidAmount || 0;
 
-        const remaining =
-          interestNote.totalAmount -
-          interestNote.totalPaidAmount;
+        const noteOutstanding = Math.max(0, interestNote.totalAmount - interestNote.totalPaidAmount);
+        if (noteOutstanding <= 0 || totalOutstanding <= 0) continue;
 
-        if (remaining > 0) {
+        const proportion = noteOutstanding / totalOutstanding;
+        let amountForThisNote = Math.min(
+          Math.round(remainingAmount * proportion * 100) / 100,
+          noteOutstanding
+        );
+
+        if (amountForThisNote > remainingAmount) {
+          amountForThisNote = Math.min(remainingAmount, noteOutstanding);
+        }
+        remainingAmount = Math.round((remainingAmount - amountForThisNote) * 100) / 100;
+
+        if (amountForThisNote > 0) {
           interestNote.paymentRecords.push({
             paymentDate: savedTransaction.paymentDate,
-            amountPaid: remaining,
+            amountPaid: amountForThisNote,
             transactionId: savedTransaction._id,
             paymentMethod,
             referenceNumber,
             notes: `Interest note payment via transaction ${savedTransaction._id}`,
           });
 
-          interestNote.totalPaidAmount += remaining;
+          interestNote.totalPaidAmount += amountForThisNote;
 
           interestNote.status =
-            interestNote.totalPaidAmount >=
-            interestNote.totalAmount
+            interestNote.totalPaidAmount >= interestNote.totalAmount
               ? 'Paid'
               : 'Partially Paid';
 
@@ -191,13 +229,10 @@ const createTransaction = async (req, res) => {
 
         finalRelatedInterestNotes.push({
           interestNoteId: interestNote._id,
-          interestNoteNumber:
-            interestNote.interestNoteNumber,
+          interestNoteNumber: interestNote.interestNoteNumber,
         });
 
-        interestNoteNumbers.push(
-          interestNote.interestNoteNumber
-        );
+        interestNoteNumbers.push(interestNote.interestNoteNumber);
       }
 
       autoGeneratedDescription = `Interest Note Payment received: ${interestNoteNumbers.join(', ')}`;
@@ -212,22 +247,43 @@ const createTransaction = async (req, res) => {
     ) {
       let purchaseNumbers = [];
 
+      const purchaseDocs = [];
       for (const purchaseId of relatedPurchaseIds) {
         const purchase = await Purchase.findById(purchaseId);
-        if (!purchase) continue;
+        if (purchase) purchaseDocs.push(purchase);
+      }
 
-        const remaining = purchase.amount - purchase.totalPaidAmount;
+      const totalOutstanding = purchaseDocs.reduce(
+        (sum, p) => sum + Math.max(0, p.amount - (p.totalPaidAmount || 0)),
+        0
+      );
 
-        if (remaining > 0) {
+      let remainingAmount = parseFloat(amount);
+      for (const purchase of purchaseDocs) {
+        const purchaseOutstanding = Math.max(0, purchase.amount - (purchase.totalPaidAmount || 0));
+        if (purchaseOutstanding <= 0 || totalOutstanding <= 0) continue;
+
+        const proportion = purchaseOutstanding / totalOutstanding;
+        let amountForThisPurchase = Math.min(
+          Math.round(remainingAmount * proportion * 100) / 100,
+          purchaseOutstanding
+        );
+
+        if (amountForThisPurchase > remainingAmount) {
+          amountForThisPurchase = Math.min(remainingAmount, purchaseOutstanding);
+        }
+        remainingAmount = Math.round((remainingAmount - amountForThisPurchase) * 100) / 100;
+
+        if (amountForThisPurchase > 0) {
           purchase.paymentRecords.push({
             paymentDate: savedTransaction.paymentDate,
-            amountPaid: remaining,
+            amountPaid: amountForThisPurchase,
             transactionId: savedTransaction._id,
             paymentMethod,
             referenceNumber,
           });
 
-          purchase.totalPaidAmount += remaining;
+          purchase.totalPaidAmount = (purchase.totalPaidAmount || 0) + amountForThisPurchase;
           await purchase.save();
         }
 
@@ -260,6 +316,86 @@ const createTransaction = async (req, res) => {
 
     res.status(201).json(savedTransaction);
   } catch (error) {
+    // Best-effort rollback: if a linked document save failed mid-way, undo the
+    // partial payment updates and remove the transaction so no orphan records /
+    // half-updated bills are left behind (a single transaction may pay many bills).
+    if (savedTransaction) {
+      try {
+        const transactionId = savedTransaction._id.toString();
+
+        for (const billId of relatedBillIds || []) {
+          const bill = await Bill.findById(billId);
+          if (!bill) continue;
+          const before = bill.paymentRecords.length;
+          bill.paymentRecords = bill.paymentRecords.filter(
+            (pr) =>
+              !pr.transactionId ||
+              pr.transactionId.toString() !== transactionId
+          );
+          if (bill.paymentRecords.length !== before) {
+            bill.totalPaidAmount = bill.paymentRecords.reduce(
+              (sum, pr) => sum + (pr.amountPaid || 0),
+              0
+            );
+            await bill.save();
+          }
+        }
+
+        for (const purchaseId of relatedPurchaseIds || []) {
+          const purchase = await Purchase.findById(purchaseId);
+          if (!purchase) continue;
+          const before = (purchase.paymentRecords || []).length;
+          purchase.paymentRecords = (purchase.paymentRecords || []).filter(
+            (pr) =>
+              !pr.transactionId ||
+              pr.transactionId.toString() !== transactionId
+          );
+          if ((purchase.paymentRecords || []).length !== before) {
+            purchase.totalPaidAmount = (purchase.paymentRecords || []).reduce(
+              (sum, pr) => sum + (pr.amountPaid || 0),
+              0
+            );
+            await purchase.save();
+          }
+        }
+
+        for (const noteId of relatedInterestNoteIds || []) {
+          const interestNote = await InterestNote.findById(noteId);
+          if (!interestNote) continue;
+          const before = (interestNote.paymentRecords || []).length;
+          interestNote.paymentRecords = (interestNote.paymentRecords || []).filter(
+            (pr) =>
+              !pr.transactionId ||
+              pr.transactionId.toString() !== transactionId
+          );
+          if ((interestNote.paymentRecords || []).length !== before) {
+            interestNote.totalPaidAmount = (interestNote.paymentRecords || []).reduce(
+              (sum, pr) => sum + (pr.amountPaid || 0),
+              0
+            );
+            interestNote.status =
+              (interestNote.totalPaidAmount || 0) <= 0
+                ? 'Pending'
+                : interestNote.totalPaidAmount >= interestNote.totalAmount
+                  ? 'Paid'
+                  : 'Partially Paid';
+            await interestNote.save();
+          }
+        }
+
+        await savedTransaction.deleteOne();
+        log(
+          `Rolled back transaction ${savedTransaction._id} after partial failure`,
+          'warn'
+        );
+      } catch (rollbackError) {
+        log(
+          `Failed to roll back transaction ${savedTransaction?._id}: ${rollbackError.message}`,
+          'error'
+        );
+      }
+    }
+
     log(
       `Error creating transaction: ${error.message} - Stack: ${error.stack}`,
       'error'

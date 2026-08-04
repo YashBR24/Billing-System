@@ -179,7 +179,7 @@ const BillSchema = new mongoose.Schema({
     _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
     paymentDate: { type: Date, required: true },
     amountPaid: { type: Number, required: true, min: 0.01 },
-    transactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction', required: true, unique: true, sparse: true },
+    transactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction', required: true },
     paymentMethod: String,
     referenceNumber: String,
     notes: String,

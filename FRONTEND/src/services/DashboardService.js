@@ -1,60 +1,49 @@
-import axios from 'axios';
-import AuthService from './AuthService';
+import api from '../utils/axiosConfig';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL + '/dashboard/';
-
-const getAuthHeaders = () => {
-  const user = AuthService.getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: 'Bearer ' + user.token };
-  } else {
-    console.error("User token not found for dashboard service.");
-    return {};
-  }
-};
+const API_URL = '/dashboard/';
 
 const getFinancialYears = () => {
-  return axios.get(API_URL + 'financial-years', { headers: getAuthHeaders() });
+  return api.get(API_URL + 'financial-years');
 };
 
 const getFYSummary = (fy) => {
-  return axios.get(API_URL + 'fy-summary', { params: { fy }, headers: getAuthHeaders() });
+  return api.get(API_URL + 'fy-summary', { params: { fy } });
 };
 
 const getFYComparison = () => {
-  return axios.get(API_URL + 'fy-comparison', { headers: getAuthHeaders() });
+  return api.get(API_URL + 'fy-comparison');
 };
 
 const getFYMonthlyBreakdown = (fy) => {
-  return axios.get(API_URL + 'fy-monthly', { params: { fy }, headers: getAuthHeaders() });
+  return api.get(API_URL + 'fy-monthly', { params: { fy } });
 };
 
 const getFYMaterialFlow = (fy) => {
-  return axios.get(API_URL + 'fy-material-flow', { params: { fy }, headers: getAuthHeaders() });
+  return api.get(API_URL + 'fy-material-flow', { params: { fy } });
 };
 
 const getOverdueBills = () => {
-  return axios.get(API_URL + 'overdue-bills', { headers: getAuthHeaders() });
+  return api.get(API_URL + 'overdue-bills');
 };
 
 const getOverduePurchases = () => {
-  return axios.get(API_URL + 'overdue-purchases', { headers: getAuthHeaders() });
+  return api.get(API_URL + 'overdue-purchases');
 };
 
 const getAllOverdue = () => {
-  return axios.get(API_URL + 'all-overdue', { headers: getAuthHeaders() });
+  return api.get(API_URL + 'all-overdue');
 };
 
 const getUpcomingBillDues = () => {
-  return axios.get(API_URL + 'upcoming-bill-dues', { headers: getAuthHeaders() });
+  return api.get(API_URL + 'upcoming-bill-dues');
 };
 
 const getUpcomingPurchaseDues = () => {
-  return axios.get(API_URL + 'upcoming-purchase-dues', { headers: getAuthHeaders() });
+  return api.get(API_URL + 'upcoming-purchase-dues');
 };
 
 const getMaterialFlowCards = (fy) => {
-  return axios.get(API_URL + 'material-flow-cards', { params: { fy }, headers: getAuthHeaders() });
+  return api.get(API_URL + 'material-flow-cards', { params: { fy } });
 };
 
 const DashboardService = {

@@ -1,52 +1,39 @@
-import axios from 'axios';
-import AuthService from './AuthService';
+import api from '../utils/axiosConfig';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL + '/purchases/';
-
-const getAuthHeaders = () => {
-  const user = AuthService.getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: 'Bearer ' + user.token };
-  } else {
-    console.error("User token not found for purchase service.");
-    return {};
-  }
-};
+const API_URL = '/purchases/';
 
 const createPurchase = (purchaseData) => {
-  return axios.post(API_URL, purchaseData, { headers: getAuthHeaders() });
+  return api.post(API_URL, purchaseData);
 };
 
-const getAllPurchases = (params = {}) => { // params for future filtering
-  return axios.get(API_URL, { headers: getAuthHeaders(), params });
+const getAllPurchases = (params = {}) => {
+  return api.get(API_URL, { params });
 };
 
 const getPurchaseById = (id) => {
-  return axios.get(API_URL + id, { headers: getAuthHeaders() });
+  return api.get(API_URL + id);
 };
 
 const downloadPurchasesExcel = (filters = {}) => {
-  return axios.get(API_URL + 'download/excel', {
-    headers: getAuthHeaders(),
+  return api.get(API_URL + 'download/excel', {
     params: filters,
     responseType: 'blob',
   });
 };
 
 const downloadPurchasesPdf = (filters = {}) => {
-  return axios.get(API_URL + 'download/pdf', {
-    headers: getAuthHeaders(),
+  return api.get(API_URL + 'download/pdf', {
     params: filters,
     responseType: 'blob',
   });
 };
 
 const updatePurchase = (id, purchaseData) => {
-  return axios.put(API_URL + id, purchaseData, { headers: getAuthHeaders() });
+  return api.put(API_URL + id, purchaseData);
 };
 
 const deletePurchase = (id) => {
-  return axios.delete(API_URL + id, { headers: getAuthHeaders() });
+  return api.delete(API_URL + id);
 };
 
 const PurchaseService = {
