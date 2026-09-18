@@ -868,12 +868,6 @@ const generateCreditNotePdf = async (req, res) => {
       { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth }
     );
     yRight -= drawTextAndMeasureHeight(
-      `Financial Year : ${creditNote.financialYear || getFinancialYear(creditNote.creditNoteDate)}`,
-      billDetailsX,
-      yRight,
-      { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth }
-    );
-    yRight -= drawTextAndMeasureHeight(
       `Original Bill No : ${creditNote.originalBillNumber || 'N/A'}`,
       billDetailsX,
       yRight,

@@ -246,10 +246,18 @@ BillSchema.pre('save', async function(next) {
   this.jobSgstAmount = 0;
 
   // 4️⃣ Apply tax (WITH 2 DECIMAL ROUNDING)
+  // NOTE: settings default percentages are applied ONLY when creating a new bill.
+  // For existing bills the stored percentages are preserved, otherwise a later
+  // transaction/update (e.g. recording a payment) would silently recompute the
+  // total with the CURRENT settings and could wrongly flip status to "Paid".
   if (this.taxType === 'CGST_SGST') {
 
-    this.cgstPercentage = settings.cgstPercentage;
-    this.sgstPercentage = settings.sgstPercentage;
+    if (this.isNew) {
+      this.cgstPercentage = settings.cgstPercentage;
+      this.sgstPercentage = settings.sgstPercentage;
+    }
+    this.cgstPercentage = Number(this.cgstPercentage) || 0;
+    this.sgstPercentage = Number(this.sgstPercentage) || 0;
 
     this.cgstAmount = Number(
       ((this.amountAfterDiscount * this.cgstPercentage) / 100).toFixed(2)
@@ -262,7 +270,10 @@ BillSchema.pre('save', async function(next) {
 
   if (this.taxType === 'IGST') {
 
-    this.igstPercentage = settings.igstPercentage;
+    if (this.isNew) {
+      this.igstPercentage = settings.igstPercentage;
+    }
+    this.igstPercentage = Number(this.igstPercentage) || 0;
 
     this.igstAmount = Number(
       ((this.amountAfterDiscount * this.igstPercentage) / 100).toFixed(2)
@@ -271,8 +282,12 @@ BillSchema.pre('save', async function(next) {
 
   if (this.taxType === 'JOBCGST_JOBSGST') {
 
-    this.jobCgstPercentage = settings.jobCgstPercentage;
-    this.jobSgstPercentage = settings.jobSgstPercentage;
+    if (this.isNew) {
+      this.jobCgstPercentage = settings.jobCgstPercentage;
+      this.jobSgstPercentage = settings.jobSgstPercentage;
+    }
+    this.jobCgstPercentage = Number(this.jobCgstPercentage) || 0;
+    this.jobSgstPercentage = Number(this.jobSgstPercentage) || 0;
 
     this.jobCgstAmount = Number(
       ((this.amountAfterDiscount * this.jobCgstPercentage) / 100).toFixed(2)

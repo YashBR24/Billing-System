@@ -1603,10 +1603,10 @@ useEffect(() => {
                       <div className="border border-gray-200 p-3 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="text-sm text-gray-700 font-semibold">
-                            Return Items — Adjust Quantities as needed
+                            Return Items — Adjust Quantities & Rates as needed
                           </h4>
                           <span className="text-xs text-gray-500">
-                            Max quantity from bill shown in placeholder
+                            Max values from bill shown in placeholders
                           </span>
                         </div>
                         <div className="space-y-2">
@@ -1654,9 +1654,21 @@ useEffect(() => {
                                 <input
                                   type="number"
                                   value={item.rate}
-                                  disabled
-                                  className="w-full text-black p-2 border border-gray-200 rounded-lg text-sm bg-gray-100"
+                                  onChange={(e) => handleCreateItemChange(idx, "rate", e.target.value)}
+                                  min="0"
+                                  step="0.01"
+                                  className={`w-full text-black p-2 border rounded-lg text-sm ${
+                                    createFormErrors[`item_rate_${idx}`]
+                                      ? "border-rose-400 bg-rose-50"
+                                      : "border-gray-200"
+                                  }`}
+                                  placeholder={`Rate: ₹${item.rate}`}
                                 />
+                                {createFormErrors[`item_rate_${idx}`] && (
+                                  <p className="text-xs text-rose-600 mt-0.5">
+                                    {createFormErrors[`item_rate_${idx}`]}
+                                  </p>
+                                )}
                               </div>
                               <div className="text-sm text-black font-semibold">
                                 ₹{(item.amount || 0).toFixed(2)}

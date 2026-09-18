@@ -28,6 +28,7 @@ import {
   ArrowDownRight,
   RefreshCw,
   ChevronRight,
+  ChevronLeft,
   Sparkles,
   X,
   ExternalLink,
@@ -55,6 +56,8 @@ ChartJS.register(
   Legend,
   Filler
 );
+
+const OVERDUE_PAGE_SIZE = 20;
 
 const itemVariants = {
   hidden: { y: 20, opacity: 0 },
@@ -107,6 +110,7 @@ const DashboardPage = () => {
   const [materialFlow, setMaterialFlow] = useState(null);
   const [materialFlowCards, setMaterialFlowCards] = useState(null);
   const [allOverdue, setAllOverdue] = useState(null);
+  const [overduePage, setOverduePage] = useState(0);
 
   const [loading, setLoading] = useState({
     summary: true,
@@ -152,6 +156,7 @@ const DashboardPage = () => {
       setMaterialFlow(matFlowRes.data);
       setMaterialFlowCards(matCardsRes.data);
       setAllOverdue(overdueRes.data);
+      setOverduePage(0);
     } catch (err) {
       console.error("Failed to fetch dashboard data:", err);
       setError(err.response?.data?.message || err.message || "Could not load dashboard data.");
@@ -756,7 +761,9 @@ const DashboardPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {allOverdue.items.slice(0, 20).map((item) => (
+                    {allOverdue.items
+                      .slice(overduePage * OVERDUE_PAGE_SIZE, (overduePage + 1) * OVERDUE_PAGE_SIZE)
+                      .map((item) => (
                       <tr
                         key={item._id}
                         className="hover:bg-gray-50/50 transition-colors cursor-pointer"
@@ -814,7 +821,9 @@ const DashboardPage = () => {
 
               {/* Mobile Card View */}
               <div className="sm:hidden divide-y divide-gray-100">
-                {allOverdue.items.slice(0, 20).map((item) => (
+                {allOverdue.items
+                  .slice(overduePage * OVERDUE_PAGE_SIZE, (overduePage + 1) * OVERDUE_PAGE_SIZE)
+                  .map((item) => (
                   <div
                     key={item._id}
                     className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
@@ -864,9 +873,53 @@ const DashboardPage = () => {
                 ))}
               </div>
 
-              {allOverdue.items.length > 20 && (
-                <div className="px-4 sm:px-5 py-2 sm:py-3 bg-gray-50/50 text-center text-xs text-gray-500 border-t border-gray-100">
-                  Showing 20 of {allOverdue.items.length} overdue items
+              {allOverdue.items.length > OVERDUE_PAGE_SIZE && (
+                <div className="px-4 sm:px-5 py-3 sm:py-4 bg-gray-50/50 border-t border-gray-100">
+                  <div className="flex items-center justify-between gap-2 sm:gap-4 max-w-lg mx-auto">
+                    <button
+                      onClick={() => setOverduePage((p) => Math.max(0, p - 1))}
+                      disabled={overduePage === 0}
+                      className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="hidden sm:inline">Prev</span>
+                    </button>
+
+                    <div className="flex-1 flex items-center gap-2 sm:gap-3 min-w-0">
+                      <input
+                        type="range"
+                        min={1}
+                        max={Math.ceil(allOverdue.items.length / OVERDUE_PAGE_SIZE)}
+                        value={overduePage + 1}
+                        onChange={(e) => setOverduePage(Number(e.target.value) - 1)}
+                        className="flex-1 accent-red-600 cursor-pointer"
+                        aria-label="Overdue payment pages"
+                      />
+                      <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">
+                        {overduePage + 1} / {Math.ceil(allOverdue.items.length / OVERDUE_PAGE_SIZE)}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        setOverduePage((p) =>
+                          Math.min(Math.ceil(allOverdue.items.length / OVERDUE_PAGE_SIZE) - 1, p + 1)
+                        )
+                      }
+                      disabled={
+                        overduePage >= Math.ceil(allOverdue.items.length / OVERDUE_PAGE_SIZE) - 1
+                      }
+                      className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                    >
+                      <span className="hidden sm:inline">Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p className="text-center text-[11px] text-gray-400 mt-2">
+                    Showing {overduePage * OVERDUE_PAGE_SIZE + 1}–
+                    {Math.min((overduePage + 1) * OVERDUE_PAGE_SIZE, allOverdue.items.length)} of{" "}
+                    {allOverdue.items.length} overdue items
+                  </p>
                 </div>
               )}
             </>

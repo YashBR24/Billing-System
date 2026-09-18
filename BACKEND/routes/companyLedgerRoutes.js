@@ -5,6 +5,7 @@ const { getCompanyLedger,
   downloadCompanyLedgerExcel,
   downloadCompanyLedgerPDF,
   getCompanyBillSummary,
+  getCompanyOutstanding,
   getCompanyFinancialYears
 } = require('../controllers/companyLedgerController');
 const { protect, isAdmin } = require('../middleware/authMiddleware');
@@ -21,6 +22,9 @@ router.route('/companies-summary')
 
 router.route('/company-bills')
   .get(getCompanyBillSummary);
+
+router.route('/company-outstanding')
+  .get(getCompanyOutstanding);
 
 router.route('/company-financial-years')
   .get(getCompanyFinancialYears);

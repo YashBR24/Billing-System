@@ -3810,6 +3810,109 @@ const getCompanyBillSummary = async (req, res) => {
   }
 };
 
+// @desc    Get outstanding bills for a company with per-bill due days
+// @route   GET /api/ledger/company-outstanding
+// @access  Private/Admin
+const getCompanyOutstanding = async (req, res) => {
+  const { companyId, financialYear, startDate, endDate } = req.query;
+
+  if (!companyId) {
+    return res.status(400).json({ message: 'Company ID is required.' });
+  }
+
+  try {
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found.' });
+    }
+
+    let billDateFilter = {};
+    if (financialYear && financialYear !== 'all') {
+      const fyParts = financialYear.split('-');
+      const startYear = parseInt(fyParts[0], 10);
+      const fyStart = new Date(startYear, 3, 1);
+      fyStart.setHours(0, 0, 0, 0);
+      const fyEnd = new Date(startYear + 1, 2, 31);
+      fyEnd.setHours(23, 59, 59, 999);
+      billDateFilter = { $gte: fyStart, $lte: fyEnd };
+    } else if (startDate && endDate) {
+      billDateFilter = {
+        $gte: new Date(startDate),
+        $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
+      };
+    }
+
+    const bills = await Bill.find({
+      company: companyId,
+      organizationId: req.organizationId,
+      ...(Object.keys(billDateFilter).length > 0 && { billDate: billDateFilter }),
+    }).sort({ billDate: -1 });
+
+    const now = new Date();
+    const nowTime = now.getTime();
+    const DAY_MS = 1000 * 60 * 60 * 24;
+
+    const outstandingBills = bills
+      .map((bill) => {
+        const outstanding = bill.totalAmount - bill.totalPaidAmount;
+        if (outstanding <= 0 || bill.status === 'Cancelled') return null;
+
+        let status = bill.status;
+        if (bill.dueDate && new Date(bill.dueDate) < now) {
+          status = 'Overdue';
+        } else if (bill.totalPaidAmount > 0) {
+          status = 'Partially Paid';
+        } else {
+          status = 'Pending';
+        }
+
+        let dueDays = 0;
+        if (bill.dueDate) {
+          const dueTime = new Date(bill.dueDate).getTime();
+          dueDays = Math.ceil((dueTime - nowTime) / DAY_MS);
+        }
+
+        return {
+          _id: bill._id,
+          billNumber: bill.billNumber,
+          billDate: bill.billDate,
+          dueDate: bill.dueDate,
+          challanNumber: bill.challanNumber,
+          totalAmount: bill.totalAmount,
+          totalPaidAmount: bill.totalPaidAmount,
+          outstanding: Math.round(outstanding * 100) / 100,
+          status,
+          dueDays,
+        };
+      })
+      .filter(Boolean);
+
+    const totalBillAmount = outstandingBills.reduce((sum, b) => sum + b.totalAmount, 0);
+    const totalOutstanding = outstandingBills.reduce((sum, b) => sum + b.outstanding, 0);
+
+    res.json({
+      company: {
+        _id: company._id,
+        name: company.name,
+        gstNumber: company.gstNumber,
+        companyType: company.companyType || '',
+      },
+      summary: {
+        totalBills: outstandingBills.length,
+        overdueBills: outstandingBills.filter((b) => b.status === 'Overdue').length,
+        pendingBills: outstandingBills.filter((b) => b.status === 'Pending').length,
+        partiallyPaidBills: outstandingBills.filter((b) => b.status === 'Partially Paid').length,
+        totalBillAmount: Math.round(totalBillAmount * 100) / 100,
+        totalOutstanding: Math.round(totalOutstanding * 100) / 100,
+      },
+      bills: outstandingBills,
+    });
+  } catch (error) {
+    log(`Error getting company outstanding: ${error.message} - Stack: ${error.stack}`, 'error');
+    res.status(500).json({ message: 'Server error while fetching company outstanding.' });
+  }
+};
+
 // @desc    Get available financial years for a company
 // @route   GET /api/ledger/company-financial-years
 // @access  Private/Admin
@@ -3842,5 +3945,6 @@ module.exports = {
   downloadCompanyLedgerExcel,
   downloadCompanyLedgerPDF,
   getCompanyBillSummary,
+  getCompanyOutstanding,
   getCompanyFinancialYears
 };

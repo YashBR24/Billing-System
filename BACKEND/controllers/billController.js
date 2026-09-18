@@ -3107,7 +3107,28 @@ const getBills = async (req, res) => {
       .populate('company', 'name')
       .sort({ billDate: -1 });
 
-    res.json(bills);
+    // Re-derive status from the actual payment records at read time so that
+    // a stale/inconsistent stored status does not show the wrong value
+    // (e.g. "Paid" when only a partial amount was received).
+    const normalizedBills = bills.map((bill) => {
+      const doc = bill.toObject();
+      doc.totalPaidAmount = (bill.paymentRecords || []).reduce(
+        (sum, r) => sum + (r.amountPaid || 0),
+        0
+      );
+      if (doc.status !== 'Cancelled') {
+        if (doc.totalPaidAmount >= doc.totalAmount) {
+          doc.status = 'Paid';
+        } else if (doc.totalPaidAmount > 0) {
+          doc.status = 'Partially Paid';
+        } else {
+          doc.status = 'Pending';
+        }
+      }
+      return doc;
+    });
+
+    res.json(normalizedBills);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching bills' });
   }
@@ -3820,6 +3841,22 @@ const generateBillPdf = async (req, res) => {
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+    const sanitizeForWinAnsi = (text) => {
+      const greekToLatinMap = {
+        '\u0391':'A','\u0392':'B','\u0393':'G','\u0394':'D','\u0395':'E','\u0396':'Z','\u0397':'H','\u0398':'U',
+        '\u0399':'I','\u039A':'K','\u039B':'L','\u039C':'M','\u039D':'N','\u039E':'J','\u039F':'O','\u03A0':'P',
+        '\u03A1':'R','\u03A3':'S','\u03A4':'T','\u03A5':'Y','\u03A6':'F','\u03A7':'X','\u03A8':'C','\u03A9':'W',
+        '\u03AA':'I','\u03AB':'Y',
+        '\u03B1':'a','\u03B2':'b','\u03B3':'g','\u03B4':'d','\u03B5':'e','\u03B6':'z','\u03B7':'h','\u03B8':'u',
+        '\u03B9':'i','\u03BA':'k','\u03BB':'l','\u03BC':'m','\u03BD':'n','\u03BE':'j','\u03BF':'o','\u03C0':'p',
+        '\u03C1':'r','\u03C2':'s','\u03C3':'s','\u03C4':'t','\u03C5':'y','\u03C6':'f','\u03C7':'x','\u03C8':'c',
+        '\u03C9':'w','\u03CA':'i','\u03CB':'y',
+      };
+      return String(text ?? '')
+        .replace(/[\u0391-\u03C9]/g, (ch) => greekToLatinMap[ch] || '?')
+        .replace(/[^\x00-\xFF]/g, '?');
+    };
+
     let y = height - 40;
     const lineSpacing = 18;
     const smallLineSpacing = 12;
@@ -3829,7 +3866,7 @@ const generateBillPdf = async (req, res) => {
     const contentWidth = rightMargin - leftMargin;
 
     const calculateTextHeight = (textToDraw, options = {}) => {
-      const textToProcess = String(textToDraw ?? '');
+      const textToProcess = sanitizeForWinAnsi(textToDraw);
       const FONT_TO_USE = options.font || font;
       const SIZE = options.size || 10;
       const LINE_HEIGHT = options.lineHeight || SIZE * 1.3;
@@ -3871,7 +3908,7 @@ const generateBillPdf = async (req, res) => {
     };
 
     const drawTextAndMeasureHeight = (textToDraw, xPos, currentY, options = {}) => {
-      const textToProcess = String(textToDraw ?? '').replace(/₹/g, 'INR ');
+      const textToProcess = sanitizeForWinAnsi(textToDraw).replace(/₹/g, 'INR ');
       const FONT_TO_USE = options.font || font;
       const SIZE = options.size || 10;
       const COLOR = options.color || rgb(0, 0, 0);
@@ -4283,7 +4320,7 @@ const generateBillPdf = async (req, res) => {
     const forCompanyText = `For ${org.name}`;
     const forCompanyFontSize = 11;
     const forCompanyOptions = { font: boldFont, size: forCompanyFontSize, spacingAfter: 3, align: 'right' };
-    const forCompanyWidth = boldFont.widthOfTextAtSize(forCompanyText, forCompanyFontSize);
+    const forCompanyWidth = boldFont.widthOfTextAtSize(sanitizeForWinAnsi(forCompanyText), forCompanyFontSize);
 
     const declarationTitleHeight = drawTextAndMeasureHeight('Declaration:', leftMargin, declarationTitleY, { font: boldFont, size: 12, spacingAfter: 4 });
     drawTextAndMeasureHeight(forCompanyText, rightMargin - forCompanyWidth, declarationTitleY, forCompanyOptions);
@@ -4327,7 +4364,7 @@ const generateBillPdf = async (req, res) => {
       opacity: 0.1,
     });
     const contactText = `Contact: ${org.contactPerson} | Phone: ${org.phone} | Email: ${org.email}`;
-    const contactTextWidth = font.widthOfTextAtSize(contactText, 9);
+    const contactTextWidth = font.widthOfTextAtSize(sanitizeForWinAnsi(contactText), 9);
     drawTextAndMeasureHeight(contactText, leftMargin + (contentWidth - contactTextWidth) / 2, y, { size: 9, spacingAfter: 0, color: rgb(0.3, 0.3, 0.3) });
 
     // ✅ FIXED: Properly convert Uint8Array to Buffer to prevent binary corruption
@@ -4584,13 +4621,29 @@ const downloadBillsPdf = async (req, res) => {
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+    const sanitizeForWinAnsi = (text) => {
+      const greekToLatinMap = {
+        '\u0391':'A','\u0392':'B','\u0393':'G','\u0394':'D','\u0395':'E','\u0396':'Z','\u0397':'H','\u0398':'U',
+        '\u0399':'I','\u039A':'K','\u039B':'L','\u039C':'M','\u039D':'N','\u039E':'J','\u039F':'O','\u03A0':'P',
+        '\u03A1':'R','\u03A3':'S','\u03A4':'T','\u03A5':'Y','\u03A6':'F','\u03A7':'X','\u03A8':'C','\u03A9':'W',
+        '\u03AA':'I','\u03AB':'Y',
+        '\u03B1':'a','\u03B2':'b','\u03B3':'g','\u03B4':'d','\u03B5':'e','\u03B6':'z','\u03B7':'h','\u03B8':'u',
+        '\u03B9':'i','\u03BA':'k','\u03BB':'l','\u03BC':'m','\u03BD':'n','\u03BE':'j','\u03BF':'o','\u03C0':'p',
+        '\u03C1':'r','\u03C2':'s','\u03C3':'s','\u03C4':'t','\u03C5':'y','\u03C6':'f','\u03C7':'x','\u03C8':'c',
+        '\u03C9':'w','\u03CA':'i','\u03CB':'y',
+      };
+      return String(text ?? '')
+        .replace(/[\u0391-\u03C9]/g, (ch) => greekToLatinMap[ch] || '?')
+        .replace(/[^\x00-\xFF]/g, '?');
+    };
+
     let page = pdfDoc.addPage(PageSizes.A4);
     const { width, height } = page.getSize();
     const margin = 40;
     const maxY = margin + 20;
 
     const drawText = (text, x, y, size = 10, isBold = false) => {
-      const safeText = String(text || '').replace(/₹/g, 'Rs. ');
+      const safeText = sanitizeForWinAnsi(text).replace(/₹/g, 'Rs. ');
       const currentFont = isBold ? boldFont : font;
 
       page.drawText(safeText, {
@@ -4604,7 +4657,7 @@ const downloadBillsPdf = async (req, res) => {
     };
 
     const drawCenteredText = (text, x, width, y, size = 10, isBold = false) => {
-      const safeText = String(text || '').replace(/₹/g, 'Rs. ');
+      const safeText = sanitizeForWinAnsi(text).replace(/₹/g, 'Rs. ');
       const currentFont = isBold ? boldFont : font;
       const textWidth = currentFont.widthOfTextAtSize(safeText, size);
       const centeredX = x + (width - textWidth) / 2;
@@ -4620,7 +4673,7 @@ const downloadBillsPdf = async (req, res) => {
     };
 
     const drawRightAlignedText = (text, x, width, y, size = 10, isBold = false) => {
-      const safeText = String(text || '').replace(/₹/g, 'Rs. ');
+      const safeText = sanitizeForWinAnsi(text).replace(/₹/g, 'Rs. ');
       const currentFont = isBold ? boldFont : font;
       const textWidth = currentFont.widthOfTextAtSize(safeText, size);
       const rightX = x + width - textWidth - 3;

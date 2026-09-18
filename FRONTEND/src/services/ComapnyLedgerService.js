@@ -14,6 +14,10 @@ const getCompanyBillSummary = (params = {}) => {
   return api.get(API_URL + 'company-bills', { params });
 };
 
+const getCompanyOutstanding = (params = {}) => {
+  return api.get(API_URL + 'company-outstanding', { params });
+};
+
 const getCompanyFinancialYears = (params = {}) => {
   return api.get(API_URL + 'company-financial-years', { params });
 };
@@ -54,6 +58,7 @@ const LedgerService = {
   getCompanyLedger,
   getCompaniesLedgerSummary,
   getCompanyBillSummary,
+  getCompanyOutstanding,
   getCompanyFinancialYears,
   downloadCompanyLedgerExcel,
   downloadCompanyLedgerPDF,
