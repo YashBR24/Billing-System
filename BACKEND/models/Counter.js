@@ -5,12 +5,6 @@ const CounterSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: false,
-    index: true,
-  },
   sequenceValue: {
     type: Number,
     required: true,

@@ -62,7 +62,6 @@ const getFYSummary = async (req, res) => {
 
     const fyTransactions = await Transaction.find({
       paymentDate: { $gte: start, $lte: end },
-      organizationId: req.organizationId,
     }).lean();
 
     const totalIn = fyTransactions
@@ -76,24 +75,20 @@ const getFYSummary = async (req, res) => {
     const fyBills = await Bill.find({
       billDate: { $gte: start, $lte: end },
       status: { $ne: 'Cancelled' },
-      organizationId: req.organizationId,
     }).lean();
 
     const fyPurchases = await Purchase.find({
       purchaseBillDate: { $gte: start, $lte: end },
-      organizationId: req.organizationId,
     }).lean();
 
     const fyCreditNotes = await CreditNote.find({
       creditNoteDate: { $gte: start, $lte: end },
       status: { $ne: 'Cancelled' },
-      organizationId: req.organizationId,
     }).lean();
 
     const fyDebitNotes = await DebitNote.find({
       debitNoteDate: { $gte: start, $lte: end },
       status: { $ne: 'Cancelled' },
-      organizationId: req.organizationId,
     }).lean();
 
     const now = new Date();
@@ -102,7 +97,6 @@ const getFYSummary = async (req, res) => {
 
     const currentMonthTransactions = await Transaction.find({
       paymentDate: { $gte: monthStart, $lte: monthEnd },
-      organizationId: req.organizationId,
     }).lean();
 
     const currentMonthIn = currentMonthTransactions
@@ -165,11 +159,11 @@ const getFYComparison = async (req, res) => {
       const { start, end } = getFYRange(fy);
 
       const [bills, purchases, creditNotes, debitNotes, transactions] = await Promise.all([
-        Bill.find({ billDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' }, organizationId: req.organizationId }).lean(),
-        Purchase.find({ purchaseBillDate: { $gte: start, $lte: end }, organizationId: req.organizationId }).lean(),
-        CreditNote.find({ creditNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' }, organizationId: req.organizationId }).lean(),
-        DebitNote.find({ debitNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' }, organizationId: req.organizationId }).lean(),
-        Transaction.find({ paymentDate: { $gte: start, $lte: end }, organizationId: req.organizationId }).lean(),
+        Bill.find({ billDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' } }).lean(),
+        Purchase.find({ purchaseBillDate: { $gte: start, $lte: end } }).lean(),
+        CreditNote.find({ creditNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' } }).lean(),
+        DebitNote.find({ debitNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' } }).lean(),
+        Transaction.find({ paymentDate: { $gte: start, $lte: end } }).lean(),
       ]);
 
       const totalIn = transactions.filter((t) => t.type === 'IN').reduce((sum, t) => sum + (t.amount || 0), 0);
@@ -221,7 +215,7 @@ const getFYMonthlyBreakdown = async (req, res) => {
     const expenseData = new Array(12).fill(0);
 
     const [transactions] = await Promise.all([
-      Transaction.find({ organizationId: req.organizationId }).lean(),
+      Transaction.find({}).lean(),
     ]);
 
     for (let i = 0; i < fyMonths.length; i++) {
@@ -264,10 +258,10 @@ const getFYMaterialFlow = async (req, res) => {
     const { start, end } = getFYRange(fy);
 
     const [bills, purchases, creditNotes, debitNotes] = await Promise.all([
-      Bill.find({ billDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' }, organizationId: req.organizationId }).lean(),
-      Purchase.find({ purchaseBillDate: { $gte: start, $lte: end }, organizationId: req.organizationId }).lean(),
-      CreditNote.find({ creditNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' }, organizationId: req.organizationId }).lean(),
-      DebitNote.find({ debitNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' }, organizationId: req.organizationId }).lean(),
+      Bill.find({ billDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' } }).lean(),
+      Purchase.find({ purchaseBillDate: { $gte: start, $lte: end } }).lean(),
+      CreditNote.find({ creditNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' } }).lean(),
+      DebitNote.find({ debitNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' } }).lean(),
     ]);
 
     let totalSoldQty = 0;
@@ -388,7 +382,6 @@ const getOverdueBills = async (req, res) => {
     const overdueBills = await Bill.find({
       dueDate: { $lt: today, $ne: null },
       status: { $in: ['Pending', 'Partially Paid', 'Overdue'] },
-      organizationId: req.organizationId,
     })
       .populate('company', 'name')
       .select('billNumber billDate dueDate totalAmount totalPaidAmount status company financialYear')
@@ -426,7 +419,6 @@ const getOverduePurchases = async (req, res) => {
     const overduePurchases = await Purchase.find({
       dueDate: { $lt: today, $ne: null },
       paymentStatus: { $in: ['Unpaid', 'Partially Paid'] },
-      organizationId: req.organizationId,
     })
       .populate('supplierCompany', 'name')
       .select('purchaseBillNumber purchaseBillDate dueDate amount totalPaidAmount paymentStatus supplierCompany financialYear')
@@ -467,7 +459,6 @@ const getAllOverdue = async (req, res) => {
       Bill.find({
         dueDate: { $lt: today, $ne: null },
         status: { $in: ['Pending', 'Partially Paid', 'Overdue'] },
-        organizationId: req.organizationId,
       })
         .populate('company', 'name')
         .select('billNumber billDate dueDate totalAmount totalPaidAmount status company financialYear')
@@ -477,7 +468,6 @@ const getAllOverdue = async (req, res) => {
       Purchase.find({
         dueDate: { $lt: today, $ne: null },
         paymentStatus: { $in: ['Unpaid', 'Partially Paid'] },
-        organizationId: req.organizationId,
       })
         .populate('supplierCompany', 'name')
         .select('purchaseBillNumber purchaseBillDate dueDate amount totalPaidAmount paymentStatus supplierCompany financialYear')
@@ -544,7 +534,6 @@ const getUpcomingBillDues = async (req, res) => {
     const upcomingDues = await Bill.find({
       dueDate: { $gte: today, $lte: fiveDaysFromNow },
       status: { $in: ['Pending', 'Partially Paid'] },
-      organizationId: req.organizationId,
     })
       .populate('company', 'name')
       .select('billNumber billDate dueDate totalAmount totalPaidAmount status company financialYear')
@@ -585,7 +574,6 @@ const getUpcomingPurchaseDues = async (req, res) => {
     const upcomingDues = await Purchase.find({
       dueDate: { $gte: today, $lte: fiveDaysFromNow },
       paymentStatus: { $in: ['Unpaid', 'Partially Paid'] },
-      organizationId: req.organizationId,
     })
       .populate('supplierCompany', 'name')
       .select('purchaseBillNumber purchaseBillDate dueDate amount totalPaidAmount paymentStatus supplierCompany financialYear')
@@ -621,10 +609,10 @@ const getMaterialFlowCards = async (req, res) => {
     const { start, end } = getFYRange(fy);
 
     const [bills, purchases, creditNotes, debitNotes] = await Promise.all([
-      Bill.find({ billDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' }, organizationId: req.organizationId }).lean(),
-      Purchase.find({ purchaseBillDate: { $gte: start, $lte: end }, organizationId: req.organizationId }).lean(),
-      CreditNote.find({ creditNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' }, organizationId: req.organizationId }).lean(),
-      DebitNote.find({ debitNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' }, organizationId: req.organizationId }).lean(),
+      Bill.find({ billDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' } }).lean(),
+      Purchase.find({ purchaseBillDate: { $gte: start, $lte: end } }).lean(),
+      CreditNote.find({ creditNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' } }).lean(),
+      DebitNote.find({ debitNoteDate: { $gte: start, $lte: end }, status: { $ne: 'Cancelled' } }).lean(),
     ]);
 
     const totalSales = bills.reduce((sum, b) => sum + (b.totalAmount || 0), 0);

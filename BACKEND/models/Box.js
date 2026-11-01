@@ -2,15 +2,10 @@ const mongoose = require('mongoose');
 const Settings = require('./Settings');
 
 const BoxSchema = new mongoose.Schema({
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: false,
-    index: true,
-  },
   boxNumber: {
     type: String,
     required: true,
+    unique: true,
     trim: true,
   },
   displayNumber: {
@@ -24,7 +19,7 @@ const BoxSchema = new mongoose.Schema({
     trim: true,
     validate: {
       validator: async function(value) {
-        const settings = await Settings.getSettings(this.organizationId);
+        const settings = await Settings.getSettings();
         return settings.itemConfigurations.some(
           item => item.description === value
         );
@@ -105,7 +100,7 @@ BoxSchema.pre('save', function(next) {
 });
 
 BoxSchema.index({ descriptionOfGoods: 1, isUsed: 1 });
-BoxSchema.index({ organizationId: 1, boxNumber: 1 });
+BoxSchema.index({ boxNumber: 1 }, { unique: true });
 BoxSchema.index({ financialYear: 1, descriptionOfGoods: 1, displayNumber: 1 });
 BoxSchema.index({ createdAt: -1 });
 

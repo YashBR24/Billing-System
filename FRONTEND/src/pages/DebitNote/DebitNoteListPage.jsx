@@ -68,6 +68,8 @@ const DebitNoteListPage = () => {
 
   // Create form – step 1
   const [create_companyId,        setCreateCompanyId]        = useState("");
+  const [create_financialYear,    setCreateFinancialYear]    = useState("");
+  const [create_fyOptions,        setCreateFyOptions]        = useState([]);
 
   // Create form – step 2
   const [create_debitNoteNumber,        setCreateDebitNoteNumber]        = useState("");
@@ -78,7 +80,6 @@ const DebitNoteListPage = () => {
   const [create_purchaseId,       setCreatePurchaseId]       = useState("");
   const [create_unpaidPurchases,  setCreateUnpaidPurchases]  = useState([]);
   const [create_unpaidLoading,    setCreateUnpaidLoading]    = useState(false);
-  const [create_filterFY,         setCreateFilterFY]         = useState("");
 
   // Create form – step 3
   const [create_returnReason,      setCreateReturnReason]      = useState("Defective");
@@ -99,52 +100,13 @@ const DebitNoteListPage = () => {
   // ─────────────────────────────────────────────────────────────────────────
   // Bootstrap
   // ─────────────────────────────────────────────────────────────────────────
-useEffect(() => {
-  CompanyService.getAllCompanies()
-    .then((r) => {
-      const filteredCompanies = r.data.filter(
-        (company) =>
-          company.companyType === "Buyer" ||
-          company.companyType === "Both"
-      );
+  useEffect(() => {
+    CompanyService.getAllCompanies()
+      .then((r) => setCompanies(r.data))
+      .catch((e) => console.error("Failed to fetch companies:", e));
 
-      setCompanies(filteredCompanies);
-    })
-    .catch((e) => console.error("Failed to fetch companies:", e));
-
-  setCreateFilterFY(getCurrentFY());
-}, []);
-
-  // Auto-detect FY from a date string
-  const getFYFromDate = (dateStr) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    const month = d.getMonth();
-    const year = d.getFullYear();
-    if (month >= 3) return `${year}-${String(year + 1).slice(-2)}`;
-    return `${year - 1}-${String(year).slice(-2)}`;
-  };
-
-  // Get current FY
-  const getCurrentFY = () => {
-    const d = new Date();
-    const month = d.getMonth();
-    const year = d.getFullYear();
-    if (month >= 3) return `${year}-${String(year + 1).slice(-2)}`;
-    return `${year - 1}-${String(year).slice(-2)}`;
-  };
-
-  // Build FY options
-  const buildFYOptions = (yearsBack = 4, yearsForward = 1) => {
-    const currentYear = new Date().getFullYear();
-    const options = [];
-    for (let i = -yearsBack; i <= yearsForward; i++) {
-      const y = currentYear + i;
-      const fy = `${y}-${String((y + 1) % 100).padStart(2, "0")}`;
-      options.push(fy);
-    }
-    return options;
-  };
+    setCreateFyOptions(DebitNoteService.getFinancialYearOptions(3));
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -311,6 +273,7 @@ useEffect(() => {
     setCreateSuccessMessage("");
     setCreateFormErrors({});
     setCreateCompanyId("");
+    setCreateFinancialYear(DebitNoteService.getFinancialYear());
     setCreateDebitNoteNumber("");
     setCreateDebitNoteDate(new Date().toISOString().split("T")[0]);
     setCreatePurchaseId("");
@@ -318,7 +281,6 @@ useEffect(() => {
     setCreateReturnReason("Defective");
     setCreateReturnReasonNotes("");
     setCreateItems([]);
-    setCreateFilterFY(getCurrentFY());
     setIsCreateOpen(true);
 
     try {
@@ -347,7 +309,9 @@ useEffect(() => {
 
     try {
       setCreateUnpaidLoading(true);
-      const purchasesRes = await DebitNoteService.getUnpaidPurchasesByCompany(companyId, create_filterFY);
+      const [purchasesRes] = await Promise.all([
+        DebitNoteService.getUnpaidPurchasesByCompany(companyId, create_financialYear),
+      ]);
       setCreateUnpaidPurchases(purchasesRes.data);
     } catch (err) {
       console.error("Failed to fetch unpaid purchases:", err);
@@ -356,8 +320,28 @@ useEffect(() => {
       setCreateUnpaidLoading(false);
     }
 
-    const fy = getFYFromDate(create_debitNoteDate);
+    await refreshNoteNumber(create_financialYear);
+  };
+
+  // Step C: FY changes → refresh purchases (if company chosen) + note number
+  const handleFinancialYearChange = async (fy) => {
+    setCreateFinancialYear(fy);
+    setCreatePurchaseId("");
+    setCreateItems([]);
+    setCreateDebitNoteNumber("");
     await refreshNoteNumber(fy);
+
+    if (create_companyId) {
+      try {
+        setCreateUnpaidLoading(true);
+        const res = await DebitNoteService.getUnpaidPurchasesByCompany(create_companyId, fy);
+        setCreateUnpaidPurchases(res.data);
+      } catch (err) {
+        console.error("Failed to fetch unpaid purchases:", err);
+      } finally {
+        setCreateUnpaidLoading(false);
+      }
+    }
   };
 
   const refreshNoteNumber = async (fy) => {
@@ -433,6 +417,7 @@ useEffect(() => {
   const validateCreateForm = () => {
     const errors = {};
     if (!create_companyId)             errors.companyId        = "Supplier company is required.";
+    if (!create_financialYear)         errors.financialYear    = "Financial year is required.";
     if (!create_debitNoteNumber.trim())errors.debitNoteNumber  = "Debit note number is required.";
     if (!create_debitNoteDate)         errors.debitNoteDate    = "Debit note date is required.";
     if (!create_purchaseId)            errors.purchaseId       = "Original purchase bill is required.";
@@ -467,6 +452,7 @@ useEffect(() => {
 
     const debitNoteData = {
       companyId:         create_companyId,
+      financialYear:     create_financialYear,
       debitNoteNumber:   create_debitNoteNumber,
       debitNoteDate:     create_debitNoteDate,
       purchaseId:        create_purchaseId,
@@ -1323,31 +1309,55 @@ useEffect(() => {
 
                 <form onSubmit={handleCreateSubmit} className="space-y-5">
 
-                  {/* ── STEP 1: Supplier Company ── */}
+                  {/* ── STEP 1: Supplier Company + Financial Year ── */}
                   <div className="border border-teal-100 bg-teal-50/40 rounded-xl p-4">
                     <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-3 flex items-center gap-1">
-                      <Building2 className="h-3.5 w-3.5" /> Step 1 — Select Supplier
+                      <Building2 className="h-3.5 w-3.5" /> Step 1 — Select Supplier &amp; Financial Year
                     </p>
-                    <div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       {/* Supplier */}
-                      <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1">
-                        Supplier Company <span className="text-rose-500">*</span>
-                      </label>
-                      <select
-                        value={create_companyId}
-                        onChange={(e) => handleCompanyChange(e.target.value)}
-                        className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
-                          createFormErrors.companyId ? "border-rose-400 bg-rose-50" : "border-gray-200"
-                        }`}
-                      >
-                        <option value="">— Select Supplier —</option>
-                        {companies.map((c) => (
-                          <option key={c._id} value={c._id}>{c.name}</option>
-                        ))}
-                      </select>
-                      {createFormErrors.companyId && (
-                        <p className="text-xs text-rose-600 mt-1">{createFormErrors.companyId}</p>
-                      )}
+                      <div>
+                        <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1">
+                          Supplier Company <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={create_companyId}
+                          onChange={(e) => handleCompanyChange(e.target.value)}
+                          className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
+                            createFormErrors.companyId ? "border-rose-400 bg-rose-50" : "border-gray-200"
+                          }`}
+                        >
+                          <option value="">— Select Supplier —</option>
+                          {companies.map((c) => (
+                            <option key={c._id} value={c._id}>{c.name}</option>
+                          ))}
+                        </select>
+                        {createFormErrors.companyId && (
+                          <p className="text-xs text-rose-600 mt-1">{createFormErrors.companyId}</p>
+                        )}
+                      </div>
+
+                      {/* Financial Year */}
+                      <div>
+                        <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1">
+                          Financial Year <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={create_financialYear}
+                          onChange={(e) => handleFinancialYearChange(e.target.value)}
+                          className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
+                            createFormErrors.financialYear ? "border-rose-400 bg-rose-50" : "border-gray-200"
+                          }`}
+                        >
+                          <option value="">— Select FY —</option>
+                          {create_fyOptions.map((fy) => (
+                            <option key={fy} value={fy}>{fy}</option>
+                          ))}
+                        </select>
+                        {createFormErrors.financialYear && (
+                          <p className="text-xs text-rose-600 mt-1">{createFormErrors.financialYear}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -1376,7 +1386,7 @@ useEffect(() => {
                           placeholder={
                             create_debitNoteNumberLoading
                               ? "Generating…"
-                              : `e.g. ${getFYFromDate(create_debitNoteDate) || "2025-26"}/DN01`
+                              : `e.g. ${create_financialYear || "2025-26"}/DN01`
                           }
                           className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
                             createFormErrors.debitNoteNumber ? "border-rose-400 bg-rose-50" : "border-gray-200"
@@ -1395,94 +1405,53 @@ useEffect(() => {
                         <input
                           type="date"
                           value={create_debitNoteDate}
-                          onChange={(e) => {
-                            const newDate = e.target.value;
-                            setCreateDebitNoteDate(newDate);
-                            const fy = getFYFromDate(newDate);
-                            refreshNoteNumber(fy);
-                          }}
+                          onChange={(e) => setCreateDebitNoteDate(e.target.value)}
                           className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
                             createFormErrors.debitNoteDate ? "border-rose-400 bg-rose-50" : "border-gray-200"
                           }`}
                         />
-                        {getFYFromDate(create_debitNoteDate) && (
-                          <span className="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-indigo-50 text-indigo-700 rounded-md border border-indigo-200">
-                            FY: {getFYFromDate(create_debitNoteDate)}
-                          </span>
-                        )}
                       </div>
 
-                      {/* FY Filter for Purchase */}
+                      {/* Unpaid Purchase dropdown */}
                       <div>
                         <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1">
-                          Financial Year <span className="text-rose-500">*</span>
+                          Unpaid Purchase Bill <span className="text-rose-500">*</span>
+                          {create_unpaidLoading && (
+                            <RefreshCw className="inline ml-2 h-3 w-3 animate-spin text-teal-500" />
+                          )}
                         </label>
                         <select
-                          value={create_filterFY}
-                          onChange={(e) => setCreateFilterFY(e.target.value)}
-                          className="mt-1 text-black block w-full p-2 text-xs lg:text-sm border border-gray-200 rounded-lg"
+                          value={create_purchaseId}
+                          onChange={(e) => handlePurchaseSelection(e.target.value)}
+                          disabled={!create_companyId || create_unpaidLoading}
+                          className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
+                            createFormErrors.purchaseId ? "border-rose-400 bg-rose-50" : "border-gray-200"
+                          } disabled:bg-gray-100 disabled:cursor-not-allowed`}
                         >
-                          {buildFYOptions().map((fy) => (
-                            <option key={fy} value={fy}>{fy}</option>
+                          <option value="">
+                            {!create_companyId
+                              ? "Select supplier first"
+                              : create_unpaidLoading
+                              ? "Loading…"
+                              : create_unpaidPurchases.length === 0
+                              ? "No unpaid purchases found"
+                              : "— Select Purchase Bill —"}
+                          </option>
+                          {create_unpaidPurchases.map((p) => (
+                            <option key={p._id} value={p._id}>
+                              #{p.purchaseBillNumber} — {formatDisplayDate(p.purchaseBillDate)} — ₹{p.amount?.toFixed(2)} [{p.paymentStatus}]
+                            </option>
                           ))}
                         </select>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (create_companyId) {
-                              setCreateUnpaidLoading(true);
-                              DebitNoteService.getUnpaidPurchasesByCompany(create_companyId, create_filterFY)
-                                .then((r) => setCreateUnpaidPurchases(r.data))
-                                .catch((e) => console.error("Failed to fetch:", e))
-                                .finally(() => setCreateUnpaidLoading(false));
-                            }
-                          }}
-                          className="mt-1 px-3 py-1 text-xs bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-                        >
-                          Load Purchases
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Unpaid Purchase dropdown */}
-                    <div>
-                      <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1">
-                        Unpaid Purchase Bill <span className="text-rose-500">*</span>
-                        {create_unpaidLoading && (
-                          <RefreshCw className="inline ml-2 h-3 w-3 animate-spin text-teal-500" />
+                        {createFormErrors.purchaseId && (
+                          <p className="text-xs text-rose-600 mt-1">{createFormErrors.purchaseId}</p>
                         )}
-                      </label>
-                      <select
-                        value={create_purchaseId}
-                        onChange={(e) => handlePurchaseSelection(e.target.value)}
-                        disabled={!create_companyId || create_unpaidLoading}
-                        className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
-                          createFormErrors.purchaseId ? "border-rose-400 bg-rose-50" : "border-gray-200"
-                        } disabled:bg-gray-100 disabled:cursor-not-allowed`}
-                      >
-                        <option value="">
-                          {!create_companyId
-                            ? "Select supplier first"
-                            : create_unpaidLoading
-                            ? "Loading…"
-                            : create_unpaidPurchases.length === 0
-                            ? "No unpaid purchases found"
-                            : "— Select Purchase Bill —"}
-                        </option>
-                        {create_unpaidPurchases.map((p) => (
-                          <option key={p._id} value={p._id}>
-                            #{p.purchaseBillNumber} — {formatDisplayDate(p.purchaseBillDate)} — ₹{p.amount?.toFixed(2)} [{p.paymentStatus}]
-                          </option>
-                        ))}
-                      </select>
-                      {createFormErrors.purchaseId && (
-                        <p className="text-xs text-rose-600 mt-1">{createFormErrors.purchaseId}</p>
-                      )}
-                      {create_companyId && !create_unpaidLoading && create_unpaidPurchases.length === 0 && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          No unpaid/partially-paid purchases found for this supplier &amp; financial year.
-                        </p>
-                      )}
+                        {create_companyId && !create_unpaidLoading && create_unpaidPurchases.length === 0 && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            No unpaid/partially-paid purchases found for this supplier &amp; financial year.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
 

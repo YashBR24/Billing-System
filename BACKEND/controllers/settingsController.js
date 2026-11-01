@@ -6,7 +6,7 @@ const { log } = require('../middleware/logger');
 // @access  Private/Admin
 const getSettings = async (req, res) => {
   try {
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings(); // Uses the static method from the model
     log(`Settings fetched`, 'info');
     res.json(settings);
   } catch (error) {
@@ -29,10 +29,10 @@ const updateSettings = async (req, res) => {
   } = req.body;
 
   try {
-    let settings = await Settings.findOne({ organizationId: req.organizationId });
+    let settings = await Settings.findOne({ singletonId: 'global_settings' });
     if (!settings) {
       // This case should ideally be handled by getSettings creating it, but as a fallback:
-      settings = new Settings({ organizationId: req.organizationId });
+      settings = new Settings({ singletonId: 'global_settings' });
       log('No existing settings found, creating new one during update.', 'info');
     }
 
@@ -80,7 +80,7 @@ const addItemConfiguration = async (req, res) => {
   }
 
   try {
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings();
     // Check for duplicates
     const existingItem = settings.itemConfigurations.find(
       item => item.description === description && item.hsnSacCode === hsnSacCode
@@ -113,7 +113,7 @@ const updateItemConfiguration = async (req, res) => {
   }
 
   try {
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings();
     const itemIndex = settings.itemConfigurations.findIndex(item => item._id.toString() === itemId);
 
     if (itemIndex === -1) {
@@ -154,7 +154,7 @@ const updateItemConfiguration = async (req, res) => {
 const deleteItemConfiguration = async (req, res) => {
   const { itemId } = req.params;
   try {
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings();
     const initialLength = settings.itemConfigurations.length;
     settings.itemConfigurations = settings.itemConfigurations.filter(item => item._id.toString() !== itemId);
 

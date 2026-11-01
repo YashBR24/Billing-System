@@ -1,4 +1,3 @@
-
 // const Bill = require('../models/Bill');
 // const Company = require('../models/Company');
 // const Settings = require('../models/Settings');
@@ -10,18 +9,71 @@
 // const path = require('path');
 // const { PDFDocument, StandardFonts, rgb, PageSizes } = require('pdf-lib');
 // const fontkit = require('fontkit');
-// const { getOrgDetails } = require('../utils/orgDetails');
 
+// // const getNextBillNumber = async (req, res) => {
+// //   try {
+// //     const financialYear = req.query.financialYear || getFinancialYear();
+// //     const nextNumber = await generateBillNumber(financialYear);
+
+// //     res.json({
+// //       billNumber: nextNumber,
+// //       financialYear,
+// //     });
+// //   } catch (error) {
+// //     log(`Error fetching next bill number: ${error.message}`, 'error');
+// //     res.status(500).json({ message: 'Server error while fetching next bill number.' });
+// //   }
+// // };
+
+// // ===============================
+// // ✅ FINANCIAL YEAR HELPER
+// // ===============================
 // const getNextBillNumber = async (req, res) => {
 //   try {
 //     const financialYear = req.query.financialYear || getFinancialYear();
-//     const billNumber = await generateBillNumber(financialYear, req.organizationId);
+//     const billNumber = await generateBillNumber(financialYear);
 
 //     res.json({ billNumber, financialYear });
 //   } catch (error) {
 //     res.status(500).json({ message: 'Error generating bill number' });
 //   }
 // };
+// // const getFinancialYear = (date = new Date()) => {
+// //   const d = new Date(date);
+// //   const month = d.getMonth();
+// //   const year = d.getFullYear();
+
+// //   if (month >= 3) {
+// //     return `${year}-${String(year + 1).slice(-2)}`;
+// //   } else {
+// //     return `${year - 1}-${String(year).slice(-2)}`;
+// //   }
+// // };
+
+// // // ===============================
+// // // ✅ GENERATE BILL NUMBER
+// // // ===============================
+// // const generateBillNumber = async (financialYear) => {
+// //   const prefix = `${financialYear}/`;
+
+// //   const lastBill = await Bill.findOne({
+// //     billNumber: { $regex: `^${prefix.replace('-', '\\-')}` },
+// //   }).sort({ billNumber: -1 });
+
+// //   let nextSeq = 1;
+
+// //   if (lastBill) {
+// //     const parts = lastBill.billNumber.split('/');
+// //     const lastSeq = parseInt(parts[parts.length - 1], 10);
+// //     if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
+// //   }
+
+// //   return `${prefix}${String(nextSeq).padStart(2, '0')}`;
+// // };
+
+// // ===============================
+// // ✅ FINANCIAL YEAR HELPER
+// // ===============================
 // const getFinancialYear = (date = new Date()) => {
 //   const d = new Date(date);
 //   const month = d.getMonth();
@@ -37,49 +89,23 @@
 // // ===============================
 // // ✅ GENERATE BILL NUMBER
 // // ===============================
-// // const generateBillNumber = async (financialYear, organizationId) => {
-// //   const prefix = `${financialYear}/`;
-
-// //   const lastBill = await Bill.findOne({
-// //     billNumber: { $regex: `^${prefix.replace('-', '\\-')}` },
-// //     organizationId,
-// //   }).sort({ billNumber: -1 });
-
-// //   let nextSeq = 1;
-
-// //   if (lastBill) {
-// //     const parts = lastBill.billNumber.split('/');
-// //     const lastSeq = parseInt(parts[parts.length - 1], 10);
-// //     if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
-// //   }
-
-// //   return `${prefix}${String(nextSeq).padStart(2, '0')}`;
-// // };
-
-// const generateBillNumber = async (financialYear, organizationId) => {
+// const generateBillNumber = async (financialYear) => {
 //   const prefix = `${financialYear}/`;
 
-//   const bills = await Bill.find({
+//   const lastBill = await Bill.findOne({
 //     billNumber: { $regex: `^${prefix.replace('-', '\\-')}` },
-//     organizationId,
-//   }).select("billNumber");
+//   }).sort({ billNumber: -1 });
 
-//   let maxSeq = 0;
+//   let nextSeq = 1;
 
-//   bills.forEach((bill) => {
-//     const parts = bill.billNumber.split('/');
-//     const seq = parseInt(parts[parts.length - 1], 10);
-
-//     if (!isNaN(seq) && seq > maxSeq) {
-//       maxSeq = seq;
-//     }
-//   });
-
-//   const nextSeq = maxSeq + 1;
+//   if (lastBill) {
+//     const parts = lastBill.billNumber.split('/');
+//     const lastSeq = parseInt(parts[parts.length - 1], 10);
+//     if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
+//   }
 
 //   return `${prefix}${String(nextSeq).padStart(2, '0')}`;
 // };
-
 // const calculateBillTotals = (
 
 //   items,
@@ -184,6 +210,90 @@
 //   };
 // };
 
+// // @desc    Get available challans for a company
+// // @route   GET /api/bills/challans/:companyId
+// // @access  Private/Admin
+// // const getAvailableChallans = async (req, res) => {
+// //   const { companyId } = req.params;
+// //   try {
+// //     const usedChallans = await Bill.find({ company: companyId, challan: { $ne: null } }).distinct('challan');
+// //     const availableChallans = await Challan.find({
+// //       company: companyId,
+// //       _id: { $nin: usedChallans },
+// //     }).select('challanNumber challanDate descriptionOfGoods totalNetWeight totalCops broker');
+
+// //     log(`Fetched available challans for company ID ${companyId} by ${req.user.email}`, 'info');
+// //     res.json(availableChallans);
+// //   } catch (error) {
+// //     log(`Error fetching available challans: ${error.message}`, 'error');
+// //     res.status(500).json({ message: 'Server error while fetching available challans.' });
+// //   }
+// // };
+
+// // const getAvailableChallans = async (req, res) => {
+// //   const { companyId } = req.params;
+// //   const { financialYear } = req.query;
+
+// //   try {
+// //     if (!companyId) {
+// //       return res.status(400).json({ message: "Company ID required" });
+// //     }
+
+// //     // ===============================
+// //     // ✅ FETCH ALL BILLS FOR COMPANY + FY
+// //     // ===============================
+// //     const bills = await Bill.find({
+// //       company: companyId,
+// //       financialYear
+// //     }).select("challan challans");
+
+// //     // ===============================
+// //     // ✅ EXTRACT USED CHALLANS (FIXED)
+// //     // ===============================
+// //     const usedChallanIds = [];
+
+// //     bills.forEach((bill) => {
+// //       // single challan
+// //       if (bill.challan) {
+// //         usedChallanIds.push(bill.challan.toString());
+// //       }
+
+// //       // multiple challans
+// //       if (Array.isArray(bill.challans)) {
+// //         bill.challans.forEach((id) => {
+// //           usedChallanIds.push(id);
+// //         });
+// //       }
+// //     });
+
+// //     // ===============================
+// //     // ✅ FETCH AVAILABLE CHALLANS
+// //     // ===============================
+// //     const challans = await Challan.find({
+// //       company: companyId,
+// //       financialYear,
+// //       isUsed: false,
+// //       _id: { $nin: usedChallanIds }
+// //     }).select(
+// //       "challanNumber challanDate descriptionOfGoods totalNetWeight totalCops broker"
+// //     );
+
+// //     // DEBUG (optional)
+// //     console.log("FY:", financialYear);
+// //     console.log("Company:", companyId);
+// //     console.log("Used IDs:", usedChallanIds);
+// //     console.log("Available:", challans.length);
+
+// //     res.json(challans);
+
+// //   } catch (error) {
+// //     console.error("Error fetching challans:", error);
+// //     res.status(500).json({ message: "Error fetching challans" });
+// //   }
+// // };
+
+// // 
+
 // const getAvailableChallans = async (req, res) => {
 //   const { companyId } = req.params;
 //   const { financialYear } = req.query;
@@ -193,30 +303,24 @@
 //       return res.status(400).json({ message: "Company ID required" });
 //     }
 
+//     // ✅ FIX: Only filter FY if provided
 //     const billQuery = { company: companyId };
 //     if (financialYear) {
 //       billQuery.financialYear = financialYear;
 //     }
 
-//     const bills = await Bill.find(billQuery).select("challan challans");
+//     const bills = await Bill.find(billQuery).select("challan");
 
-//     const usedChallanIds = new Set();
+//     // ✅ FIX: KEEP ObjectId (NO toString)
+//     const usedChallanIds = bills
+//       .map(b => b.challan)
+//       .filter(Boolean);
 
-//     bills.forEach(b => {
-//       if (b.challan) {
-//         usedChallanIds.add(b.challan.toString());
-//       }
-//       if (Array.isArray(b.challans)) {
-//         b.challans.forEach(id => {
-//           usedChallanIds.add(id.toString());
-//         });
-//       }
-//     });
-
+//     // ✅ FIX: Only filter FY if provided
 //     const challanQuery = {
 //       company: companyId,
 //       isUsed: false,
-//       _id: { $nin: Array.from(usedChallanIds) }
+//       _id: { $nin: usedChallanIds }
 //     };
 
 //     if (financialYear) {
@@ -235,6 +339,344 @@
 //     res.status(500).json({ message: "Error fetching challans" });
 //   }
 // };
+// // @desc    Create a new bill
+// // @route   POST /api/bills
+// // @access  Private/Admin
+// // const createBill = async (req, res) => {
+// //   const {
+// //     billNumber,
+// //     billDate,
+// //     companyId,
+// //     consigneeId,
+// //     isConsigneeDifferent = false,
+// //     challanId,
+// //     challanNumber,
+// //     items,
+// //     rate,
+// //     discountPercentage = 0,
+// //     taxType,
+// //     overrideCgstPercentage,
+// //     overrideSgstPercentage,
+// //     overrideIgstPercentage,
+// //     overrideJobCgstPercentage,
+// //     overrideJobSgstPercentage,
+// //     status,
+// //     amountInWords,
+// //     eWayBillNumber = '',
+// //     paymentTermsDays = 30
+// //   } = req.body;
+
+// //   if (!billNumber || !companyId || (!challanId && (!items || items.length === 0)) || !taxType) {
+// //     return res.status(400).json({ message: 'Missing required fields: billNumber, companyId, items (unless challanId is provided), taxType.' });
+// //   }
+
+// //   if (!['CGST_SGST', 'IGST', 'JOBCGST_JOBSGST'].includes(taxType)) {
+// //     return res.status(400).json({ message: 'Invalid tax type' });
+// //   }
+
+// //   try {
+// //     const company = await Company.findById(companyId);
+// //     if (!company) {
+// //       log(`Bill creation failed: Company not found - ID: ${companyId}`, 'warn');
+// //       return res.status(404).json({ message: 'Company not found.' });
+// //     }
+
+// //     // Handle consignee details
+// //     let consignee = null;
+// //     let consigneeDetailsSnapshot = null;
+    
+// //     if (isConsigneeDifferent && consigneeId) {
+// //       consignee = await Company.findById(consigneeId);
+// //       if (!consignee) {
+// //         return res.status(404).json({ message: 'Consignee company not found.' });
+// //       }
+      
+// //       // Extract state code from GSTIN
+// //       const consigneeStateCode = consignee.gstNumber && consignee.gstNumber.length >= 2 ? 
+// //         consignee.gstNumber.substring(0, 2) : '';
+      
+// //       consigneeDetailsSnapshot = {
+// //         name: consignee.name,
+// //         address: consignee.address,
+// //         gstNumber: consignee.gstNumber,
+// //         stateCode: consigneeStateCode,
+// //       };
+// //     }
+
+// //     let challan = null;
+// //     let finalChallanNumber = challanNumber || '';
+// //     let finalItems = items || [];
+
+// //     if (challanId) {
+// //       challan = await Challan.findById(challanId);
+// //       if (!challan) {
+// //         return res.status(404).json({ message: 'Challan not found.' });
+// //       }
+// //       if (challan.company.toString() !== companyId) {
+// //         return res.status(400).json({ message: 'Challan does not belong to the selected company.' });
+// //       }
+// //       if (challan.isUsed) {
+// //         return res.status(400).json({ message: `Challan ${challan.challanNumber} is already used in another bill.` });
+// //       }
+// //       finalChallanNumber = challan.challanNumber;
+// //       const settings = await Settings.getSettings();
+// //       const itemConfig = settings.itemConfigurations.find(item => item.description === challan.descriptionOfGoods);
+// //       if (!itemConfig) {
+// //         return res.status(400).json({ message: 'No item configuration found for the challan\'s description of goods.' });
+// //       }
+// //       const itemRate = rate !== undefined ? rate : itemConfig.defaultRate || 0;
+// //       finalItems = [{
+// //         description: challan.descriptionOfGoods,
+// //         hsnSacCode: itemConfig.hsnSacCode || '',
+// //         quantity: challan.totalNetWeight,
+// //         rate: itemRate,
+// //         amount: Math.round(challan.totalNetWeight * itemRate),
+// //       }];
+// //     }
+
+// //     if (finalItems.length === 0) {
+// //       return res.status(400).json({ message: 'Items array cannot be empty.' });
+// //     }
+
+// //     const companyDetailsSnapshot = {
+// //       name: company.name,
+// //       address: company.address,
+// //       gstNumber: company.gstNumber,
+// //     };
+
+// //     const settings = await Settings.getSettings();
+// //     const cgstRate = overrideCgstPercentage !== undefined ? overrideCgstPercentage : settings.cgstPercentage;
+// //     const sgstRate = overrideSgstPercentage !== undefined ? overrideSgstPercentage : settings.sgstPercentage;
+// //     const igstRate = overrideIgstPercentage !== undefined ? overrideIgstPercentage : settings.igstPercentage;
+// //     const jobCgstRate = overrideJobCgstPercentage !== undefined ? overrideJobCgstPercentage : settings.jobCgstPercentage;
+// //     const jobSgstRate = overrideJobSgstPercentage !== undefined ? overrideJobSgstPercentage : settings.jobSgstPercentage;
+
+// //     const calculated = calculateBillTotals(finalItems, discountPercentage, taxType, cgstRate, sgstRate, igstRate, jobCgstRate, jobSgstRate);
+
+// //     const newBill = new Bill({
+// //       billNumber,
+// //       billDate: billDate ? new Date(billDate) : new Date(),
+// //       challan: challanId || null,
+// //       challanNumber: finalChallanNumber,
+// //       company: companyId,
+// //       companyDetailsSnapshot,
+// //       isConsigneeDifferent: isConsigneeDifferent || false,
+// //       consignee: isConsigneeDifferent ? consigneeId : null,
+// //       consigneeDetailsSnapshot,
+// //       items: calculated.items,
+// //       subTotalAmount: calculated.subTotalAmount,
+// //       discountPercentage,
+// //       discountAmount: calculated.discountAmount,
+// //       amountAfterDiscount: calculated.amountAfterDiscount,
+// //       taxType,
+
+// //       cgstPercentage: taxType === 'CGST_SGST' ? cgstRate : 0,
+// //       cgstAmount: calculated.cgstAmount,
+
+// //       sgstPercentage: taxType === 'CGST_SGST' ? sgstRate : 0,
+// //       sgstAmount: calculated.sgstAmount,
+
+// //       igstPercentage: taxType === 'IGST' ? igstRate : 0,
+// //       igstAmount: calculated.igstAmount,
+
+// //       jobCgstPercentage: taxType === 'JOBCGST_JOBSGST' ? jobCgstRate : 0,
+// //       jobCgstAmount: calculated.jobCgstAmount,
+
+// //       jobSgstPercentage: taxType === 'JOBCGST_JOBSGST' ? jobSgstRate : 0,
+// //       jobSgstAmount: calculated.jobSgstAmount,
+
+// //       totalTaxAmount: calculated.totalTaxAmount,
+
+// //       roundOffAmount: calculated.roundOffAmount,
+
+// //       totalAmount: calculated.totalAmount,
+
+// //       amountInWords: amountInWords || '',
+// //       eWayBillNumber: eWayBillNumber || '',
+// //       paymentTermsDays: paymentTermsDays || 30,
+// //       status: status || 'Pending',
+// //       createdBy: req.user._id,
+// //     });
+
+// //     const savedBill = await newBill.save();
+
+// //     if (challanId) {
+// //       await Challan.findByIdAndUpdate(
+// //         challanId,
+// //         { isUsed: true, bill: savedBill._id },
+// //         { new: true }
+// //       );
+// //       log(`Challan ${challan.challanNumber} marked as used and linked to bill ${savedBill.billNumber}`, 'info');
+// //     }
+
+// //     log(`Bill created successfully: ${savedBill.billNumber} by ${req.user.email}`, 'info');
+// //     res.status(201).json(savedBill);
+// //   } catch (error) {
+// //     log(`Error creating bill: ${error.message} - Stack: ${error.stack}`, 'error');
+// //     if (error.code === 11000 || error.message.includes('duplicate key')) {
+// //       return res.status(400).json({ message: `Bill number '${billNumber}' already exists.` });
+// //     }
+// //     if (error.name === 'ValidationError') {
+// //       return res.status(400).json({ message: error.message });
+// //     }
+// //     res.status(500).json({ message: 'Server error while creating bill.' });
+// //   }
+// // };
+
+// // const createBill = async (req, res) => {
+// //   let {
+// //     billNumber,
+// //     billDate,
+// //     companyId,
+// //     consigneeId,
+// //     isConsigneeDifferent = false,
+// //     challanId,
+// //     challanNumber,
+// //     items,
+// //     rate,
+// //     discountPercentage = 0,
+// //     taxType,
+// //     overrideCgstPercentage,
+// //     overrideSgstPercentage,
+// //     overrideIgstPercentage,
+// //     overrideJobCgstPercentage,
+// //     overrideJobSgstPercentage,
+// //     status,
+// //     amountInWords,
+// //     eWayBillNumber = '',
+// //     paymentTermsDays = 30,
+// //     financialYear
+// //   } = req.body;
+
+// //   if (!companyId || (!challanId && (!items || items.length === 0)) || !taxType) {
+// //     return res.status(400).json({
+// //       message: 'Missing required fields: companyId, items (unless challanId is provided), taxType.'
+// //     });
+// //   }
+
+// //   if (!['CGST_SGST', 'IGST', 'JOBCGST_JOBSGST'].includes(taxType)) {
+// //     return res.status(400).json({ message: 'Invalid tax type' });
+// //   }
+
+// //   try {
+// //     const company = await Company.findById(companyId);
+// //     if (!company) {
+// //       return res.status(404).json({ message: 'Company not found.' });
+// //     }
+
+// //     // ✅ FINANCIAL YEAR LOGIC
+// //     const resolvedDate = billDate ? new Date(billDate) : new Date();
+// //     const resolvedFY = financialYear || getFinancialYear(resolvedDate);
+
+// //     // ✅ AUTO BILL NUMBER
+// //     if (!billNumber) {
+// //       billNumber = await generateBillNumber(resolvedFY);
+// //     } else {
+// //       const expectedPrefix = `${resolvedFY}/`;
+// //       if (!billNumber.startsWith(expectedPrefix)) {
+// //         return res.status(400).json({
+// //           message: `Bill number must follow format "${expectedPrefix}XX"`
+// //         });
+// //       }
+// //     }
+
+// //     // ===============================
+// //     // EXISTING LOGIC (UNCHANGED)
+// //     // ===============================
+// //     let challan = null;
+// //     let finalItems = items || [];
+
+// //     if (challanId) {
+// //       challan = await Challan.findById(challanId);
+// //       if (!challan) return res.status(404).json({ message: 'Challan not found.' });
+
+// //       if (challan.isUsed) {
+// //         return res.status(400).json({
+// //           message: `Challan ${challan.challanNumber} already used`
+// //         });
+// //       }
+
+// //       const settings = await Settings.getSettings();
+// //       const itemConfig = settings.itemConfigurations.find(
+// //         item => item.description === challan.descriptionOfGoods
+// //       );
+
+// //       const itemRate = rate || itemConfig?.defaultRate || 0;
+
+// //       finalItems = [{
+// //         description: challan.descriptionOfGoods,
+// //         hsnSacCode: itemConfig?.hsnSacCode || '',
+// //         quantity: challan.totalNetWeight,
+// //         rate: itemRate,
+// //         amount: Math.round(challan.totalNetWeight * itemRate),
+// //       }];
+// //     }
+
+// //     const settings = await Settings.getSettings();
+
+// //     const calculated = calculateBillTotals(
+// //       finalItems,
+// //       discountPercentage,
+// //       taxType,
+// //       overrideCgstPercentage ?? settings.cgstPercentage,
+// //       overrideSgstPercentage ?? settings.sgstPercentage,
+// //       overrideIgstPercentage ?? settings.igstPercentage,
+// //       overrideJobCgstPercentage ?? settings.jobCgstPercentage,
+// //       overrideJobSgstPercentage ?? settings.jobSgstPercentage
+// //     );
+
+// //     const newBill = new Bill({
+// //       billNumber,
+// //       financialYear: resolvedFY, // ✅ NEW
+// //       billDate: resolvedDate,
+// //       challan: challanId || null,
+// //       challanNumber: challan?.challanNumber || '',
+// //       company: companyId,
+
+// //       items: calculated.items,
+// //       subTotalAmount: calculated.subTotalAmount,
+// //       discountPercentage,
+// //       discountAmount: calculated.discountAmount,
+// //       amountAfterDiscount: calculated.amountAfterDiscount,
+// //       taxType,
+
+// //       cgstAmount: calculated.cgstAmount,
+// //       sgstAmount: calculated.sgstAmount,
+// //       igstAmount: calculated.igstAmount,
+// //       jobCgstAmount: calculated.jobCgstAmount,
+// //       jobSgstAmount: calculated.jobSgstAmount,
+
+// //       totalTaxAmount: calculated.totalTaxAmount,
+// //       roundOffAmount: calculated.roundOffAmount,
+// //       totalAmount: calculated.totalAmount,
+
+// //       amountInWords,
+// //       eWayBillNumber,
+// //       paymentTermsDays,
+// //       status: status || 'Pending',
+// //       createdBy: req.user._id,
+// //     });
+
+// //     const savedBill = await newBill.save();
+
+// //     if (challanId) {
+// //       await Challan.findByIdAndUpdate(challanId, {
+// //         isUsed: true,
+// //         bill: savedBill._id,
+// //       });
+// //     }
+
+// //     res.status(201).json(savedBill);
+
+// //   } catch (error) {
+// //     if (error.code === 11000) {
+// //       return res.status(400).json({
+// //         message: `Bill number '${billNumber}' already exists.`
+// //       });
+// //     }
+// //     res.status(500).json({ message: 'Server error while creating bill.' });
+// //   }
+// // };
 
 // const createBill = async (req, res) => {
 //   let {
@@ -242,19 +684,14 @@
 //     billDate,
 //     companyId,
 //     challanId,
-//     challanIds,
 //     items,
 //     rate,
 //     discountPercentage = 0,
 //     taxType,
 //     financialYear,
-//     paymentTermsDays = 30,
-//     eWayBillNumber,
-//     status,
-//     amountInWords,
 //   } = req.body;
 
-//   if (!companyId || (!challanId && (!challanIds || challanIds.length === 0) && (!items || items.length === 0))) {
+//   if (!companyId || (!challanId && (!items || items.length === 0))) {
 //     return res.status(400).json({ message: 'Missing required fields' });
 //   }
 
@@ -262,150 +699,86 @@
 //     const resolvedDate = billDate ? new Date(billDate) : new Date();
 //     const resolvedFY = financialYear || getFinancialYear(resolvedDate);
 
+//     // ✅ Auto bill number
 //     if (!billNumber) {
-//       billNumber = await generateBillNumber(resolvedFY, req.organizationId);
-//     }
-
-//     // ✅ Duplicate validation
-//     const existingBill = await Bill.findOne({
-//       billNumber,
-//       organizationId: req.organizationId,
-//     });
-
-//     if (existingBill) {
-//       return res.status(400).json({
-//         message: `Bill number '${billNumber}' already exists.`,
-//       });
+//       billNumber = await generateBillNumber(resolvedFY);
 //     }
 
 //     let finalItems = items || [];
 //     let challan = null;
-//     let challansList = [];
-//     let challanNumbers = [];
 
-//     if (challanIds && challanIds.length > 0) {
-//       const challans = await Challan.find({ _id: { $in: challanIds } });
-
-//       if (challans.length !== challanIds.length) {
-//         return res.status(400).json({ message: 'Some challans not found' });
-//       }
-
-//       for (const ch of challans) {
-//         if (ch.financialYear !== resolvedFY) {
-//           return res.status(400).json({ message: `Challan ${ch.challanNumber} belongs to different financial year` });
-//         }
-//         if (ch.isUsed) {
-//           return res.status(400).json({ message: `Challan ${ch.challanNumber} already used` });
-//         }
-//       }
-
-//       const settings = await Settings.getSettings(req.organizationId);
-
-//       const itemMap = new Map();
-
-//       for (const ch of challans) {
-//         const itemConfig = settings.itemConfigurations.find(
-//           i => i.description === ch.descriptionOfGoods
-//         );
-
-//         const frontendItem = Array.isArray(items) ? items.find(it => it.description === ch.descriptionOfGoods) : null;
-//         const itemRate = frontendItem?.rate || rate || itemConfig?.defaultRate || 0;
-//         const itemQty = frontendItem?.quantity || ch.totalNetWeight;
-
-//         if (itemMap.has(ch.descriptionOfGoods)) {
-//           const existing = itemMap.get(ch.descriptionOfGoods);
-//           existing.quantity = parseFloat((existing.quantity + itemQty).toFixed(2));
-//         } else {
-//           itemMap.set(ch.descriptionOfGoods, {
-//             description: ch.descriptionOfGoods,
-//             hsnSacCode: itemConfig?.hsnSacCode || '',
-//             quantity: itemQty,
-//             rate: itemRate,
-//             amount: parseFloat((itemQty * itemRate).toFixed(2)),
-//           });
-//         }
-
-//         challansList.push(ch._id);
-//         challanNumbers.push(ch.challanNumber);
-//       }
-
-//       finalItems = Array.from(itemMap.values());
-//       finalItems.forEach(item => {
-//         item.amount = parseFloat((item.quantity * item.rate).toFixed(2));
-//       });
-
-//       challan = challans[0];
-//     } else if (challanId) {
+//     // ===============================
+//     // ✅ HANDLE CHALLAN
+//     // ===============================
+//     if (challanId) {
 //       challan = await Challan.findById(challanId);
 
 //       if (!challan) {
 //         return res.status(404).json({ message: 'Challan not found' });
 //       }
 
+//       // ✅ SAME FY VALIDATION
 //       if (challan.financialYear !== resolvedFY) {
-//         return res.status(400).json({ message: 'Challan belongs to different financial year' });
+//         return res.status(400).json({
+//           message: 'Challan belongs to different financial year'
+//         });
 //       }
 
 //       if (challan.isUsed) {
-//         return res.status(400).json({ message: `Challan ${challan.challanNumber} already used` });
+//         return res.status(400).json({
+//           message: `Challan ${challan.challanNumber} already used`
+//         });
 //       }
 
-//       const settings = await Settings.getSettings(req.organizationId);
+//       const settings = await Settings.getSettings();
 
 //       const itemConfig = settings.itemConfigurations.find(
 //         i => i.description === challan.descriptionOfGoods
 //       );
 
-//       const frontendItem = Array.isArray(items) ? items.find(it => it.description === challan.descriptionOfGoods) : null;
-//       const itemRate = frontendItem?.rate || rate || itemConfig?.defaultRate || 0;
-//       const itemQty = frontendItem?.quantity || challan.totalNetWeight;
+//       const itemRate = rate || itemConfig?.defaultRate || 0;
 
 //       finalItems = [{
 //         description: challan.descriptionOfGoods,
 //         hsnSacCode: itemConfig?.hsnSacCode || '',
-//         quantity: itemQty,
+//         quantity: challan.totalNetWeight,
 //         rate: itemRate,
-//         amount: parseFloat((itemQty * itemRate).toFixed(2)),
+//         amount: Math.round(challan.totalNetWeight * itemRate),
 //       }];
-
-//       challansList = [challanId];
-//       challanNumbers = [challan.challanNumber];
 //     }
 
 //     const calculated = calculateBillTotals(
 //       finalItems,
 //       discountPercentage,
 //       taxType,
-//       0, 0, 0, 0, 0
+//       0,0,0,0,0
 //     );
 
 //     const newBill = new Bill({
-//       organizationId: req.organizationId,
 //       billNumber,
-//       financialYear: resolvedFY,
+//       financialYear: resolvedFY, // ✅ SAVE FY
 //       billDate: resolvedDate,
 //       company: companyId,
 //       challan: challanId || null,
-//       challans: challansList.length > 0 ? challansList : undefined,
-//       challanNumber: challanNumbers.join(', ') || challan?.challanNumber || '',
+//       challanNumber: challan?.challanNumber || '',
+
 //       items: calculated.items,
 //       subTotalAmount: calculated.subTotalAmount,
 //       discountPercentage,
 //       discountAmount: calculated.discountAmount,
 //       amountAfterDiscount: calculated.amountAfterDiscount,
+
 //       taxType,
 //       totalTaxAmount: calculated.totalTaxAmount,
 //       roundOffAmount: calculated.roundOffAmount,
 //       totalAmount: calculated.totalAmount,
-//       paymentTermsDays: parseInt(paymentTermsDays, 10) || 30,
-//       eWayBillNumber: eWayBillNumber || '',
-//       status: status || 'Pending',
-//       amountInWords: amountInWords || '',
+
 //       createdBy: req.user._id,
 //     });
 
 //     const savedBill = await newBill.save();
 
+//     // ✅ MARK CHALLAN USED
 //     if (challanId) {
 //       await Challan.findByIdAndUpdate(challanId, {
 //         isUsed: true,
@@ -413,26 +786,10 @@
 //       });
 //     }
 
-//     if (challanIds && challanIds.length > 0) {
-//       await Challan.updateMany(
-//         { _id: { $in: challanIds } },
-//         { isUsed: true, bill: savedBill._id }
-//       );
-//     }
-
 //     res.status(201).json(savedBill);
 
 //   } catch (error) {
-//     console.error('Bill creation error:', error);
-    
-//     if (error.code === 11000) {
-//       return res.status(400).json({ 
-//         message: 'Duplicate bill number error. This bill number already exists in this organization.',
-//         error: error.message 
-//       });
-//     }
-    
-//     res.status(500).json({ message: 'Error creating bill', error: error.message });
+//     res.status(500).json({ message: 'Error creating bill' });
 //   }
 // };
 
@@ -447,7 +804,6 @@
 //     consigneeId,
 //     isConsigneeDifferent,
 //     challanId,
-//     challanIds,
 //     challanNumber,
 //     items,
 //     discountPercentage,
@@ -472,6 +828,7 @@
 //       return res.status(404).json({ message: 'Bill not found' });
 //     }
 
+//     // Handle challan updates
 //     if (challanId !== undefined && challanId !== bill.challan?.toString()) {
 //       if (bill.challan) {
 //         await Challan.findByIdAndUpdate(
@@ -483,26 +840,13 @@
 //       }
 //     }
 
-//     if (challanIds !== undefined) {
-//       const oldChallans = bill.challans || [];
-//       if (oldChallans.length > 0) {
-//         await Challan.updateMany(
-//           { _id: { $in: oldChallans } },
-//           { isUsed: false, bill: null }
-//         );
-//         log(`Previous challans reset for bill ${bill.billNumber}`, 'info');
-//       }
-//     }
-
 //     let needsRecalculation = false;
 
+//     // Update bill fields only if provided
 //     if (billNumber !== undefined && bill.billNumber !== billNumber) {
-//       const existingBillWithNewNumber = await Bill.findOne({ 
-//         billNumber,
-//         organizationId: req.organizationId 
-//       });
+//       const existingBillWithNewNumber = await Bill.findOne({ billNumber });
 //       if (existingBillWithNewNumber && existingBillWithNewNumber._id.toString() !== billId) {
-//         return res.status(400).json({ message: `Bill number '${billNumber}' already exists in this organization.` });
+//         return res.status(400).json({ message: `Bill number '${billNumber}' already exists.` });
 //       }
 //       bill.billNumber = billNumber;
 //     }
@@ -512,6 +856,7 @@
 //     if (eWayBillNumber !== undefined) bill.eWayBillNumber = eWayBillNumber;
 //     if (paymentTermsDays !== undefined) bill.paymentTermsDays = parseInt(paymentTermsDays, 10) || 30;
 
+//     // Handle company updates
 //     if (companyId !== undefined && bill.company.toString() !== companyId) {
 //       const company = await Company.findById(companyId);
 //       if (!company) {
@@ -525,6 +870,7 @@
 //       };
 //     }
 
+//     // Handle consignee updates
 //     if (isConsigneeDifferent !== undefined) {
 //       bill.isConsigneeDifferent = isConsigneeDifferent;
       
@@ -550,62 +896,8 @@
 //       }
 //     }
 
-//     if (challanIds && challanIds.length > 0) {
-//       const challans = await Challan.find({ _id: { $in: challanIds } });
-
-//       if (challans.length !== challanIds.length) {
-//         return res.status(400).json({ message: 'Some challans not found.' });
-//       }
-
-//       for (const ch of challans) {
-//         if (ch.company.toString() !== (companyId || bill.company.toString())) {
-//           return res.status(400).json({ message: `Challan ${ch.challanNumber} does not belong to the selected company.` });
-//         }
-//         if (ch.isUsed && ch.bill?.toString() !== billId) {
-//           return res.status(400).json({ message: `Challan ${ch.challanNumber} is already used in another bill.` });
-//         }
-//       }
-
-//       const settings = await Settings.getSettings(req.organizationId);
-//       const itemMap = new Map();
-
-//       for (const ch of challans) {
-//         const itemConfig = settings.itemConfigurations.find(item => item.description === ch.descriptionOfGoods);
-//         const frontendItem = Array.isArray(items) ? items.find(it => it.description === ch.descriptionOfGoods) : null;
-//         const itemRate = frontendItem?.rate || parseFloat(rate) || itemConfig?.defaultRate || 0;
-//         const itemQty = frontendItem?.quantity || ch.totalNetWeight;
-
-//         if (itemMap.has(ch.descriptionOfGoods)) {
-//           const existing = itemMap.get(ch.descriptionOfGoods);
-//           existing.quantity = parseFloat((existing.quantity + itemQty).toFixed(2));
-//         } else {
-//           itemMap.set(ch.descriptionOfGoods, {
-//             description: ch.descriptionOfGoods,
-//             hsnSacCode: itemConfig?.hsnSacCode || '',
-//             quantity: itemQty,
-//             rate: itemRate,
-//             amount: parseFloat((itemQty * itemRate).toFixed(2)),
-//           });
-//         }
-//       }
-
-//       const billItems = Array.from(itemMap.values());
-//       billItems.forEach(item => {
-//         item.amount = parseFloat((item.quantity * item.rate).toFixed(2));
-//       });
-
-//       bill.challan = null;
-//       bill.challans = challanIds;
-//       bill.challanNumber = challans.map(c => c.challanNumber).join(', ');
-//       bill.items = billItems;
-
-//       await Challan.updateMany(
-//         { _id: { $in: challanIds } },
-//         { isUsed: true, bill: billId }
-//       );
-
-//       needsRecalculation = true;
-//     } else if (challanId !== undefined || challanNumber !== undefined || rate !== undefined) {
+//     // Handle challan or manual items
+//     if (challanId !== undefined || challanNumber !== undefined || rate !== undefined) {
 //       if (challanId) {
 //         const challan = await Challan.findById(challanId);
 //         if (!challan) {
@@ -618,9 +910,8 @@
 //           return res.status(400).json({ message: `Challan ${challan.challanNumber} is already used in another bill.` });
 //         }
 //         bill.challan = challanId;
-//         bill.challans = [];
 //         bill.challanNumber = challan.challanNumber;
-//         const settings = await Settings.getSettings(req.organizationId);
+//         const settings = await Settings.getSettings();
 //         const itemConfig = settings.itemConfigurations.find(item => item.description === challan.descriptionOfGoods);
 //         const itemRate = parseFloat(rate) || itemConfig?.defaultRate || 0;
 //         bill.items = [{
@@ -639,7 +930,6 @@
 //         needsRecalculation = true;
 //       } else {
 //         bill.challan = null;
-//         bill.challans = [];
 //         bill.challanNumber = challanNumber || '';
 //         if (items !== undefined) {
 //           bill.items = items;
@@ -651,6 +941,7 @@
 //       needsRecalculation = true;
 //     }
 
+//     // Handle payment records
 //     if (paymentRecords !== undefined) {
 //       if (!Array.isArray(paymentRecords)) {
 //         return res.status(400).json({ message: 'paymentRecords must be an array.' });
@@ -658,6 +949,7 @@
 //       bill.paymentRecords = paymentRecords;
 //     }
 
+//     // Recalculate totals if needed
 //     if (
 //       needsRecalculation ||
 //       discountPercentage !== undefined ||
@@ -668,7 +960,7 @@
 //       overrideJobCgstPercentage !== undefined ||
 //       overrideJobSgstPercentage !== undefined
 //     ) {
-//       const settings = await Settings.getSettings(req.organizationId);
+//       const settings = await Settings.getSettings();
 //       const currentItems = bill.items;
 //       const currentDiscountPercentage = discountPercentage !== undefined ? parseFloat(discountPercentage) : bill.discountPercentage;
 //       const currentTaxType = taxType !== undefined ? taxType : bill.taxType;
@@ -795,23 +1087,12 @@
 // // };
 
 // const getBills = async (req, res) => {
-//   const { companyId, financialYear, startDate, endDate, status } = req.query;
+//   const { companyId, financialYear } = req.query;
 
-//   const query = { organizationId: req.organizationId };
+//   const query = {};
 
 //   if (companyId) query.company = companyId;
 //   if (financialYear) query.financialYear = financialYear;
-//   if (status) query.status = status;
-//   if (startDate && endDate) {
-//     query.billDate = {
-//       $gte: new Date(startDate),
-//       $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
-//     };
-//   } else if (startDate) {
-//     query.billDate = { $gte: new Date(startDate) };
-//   } else if (endDate) {
-//     query.billDate = { $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) };
-//   }
 
 //   try {
 //     const bills = await Bill.find(query)
@@ -832,8 +1113,7 @@
 //       .populate('company', 'name address gstNumber mobileNumber')
 //       .populate('consignee', 'name address gstNumber')
 //       .populate('createdBy', 'username email')
-//       .populate('challan', 'challanNumber descriptionOfGoods totalNetWeight totalCops')
-//       .populate('challans', 'challanNumber descriptionOfGoods totalNetWeight totalCops');
+//       .populate('challan', 'challanNumber descriptionOfGoods totalNetWeight totalCops');
 
 //     if (!bill) {
 //       log(`Bill not found with ID: ${req.params.id}`, 'warn');
@@ -865,14 +1145,6 @@
 //         { new: true }
 //       );
 //       log(`Challan ${bill.challan} reset due to deletion of bill ${bill.billNumber}`, 'info');
-//     }
-
-//     if (Array.isArray(bill.challans) && bill.challans.length > 0) {
-//       await Challan.updateMany(
-//         { _id: { $in: bill.challans } },
-//         { isUsed: false, bill: null }
-//       );
-//       log(`Challans ${bill.challans.length} reset due to deletion of bill ${bill.billNumber}`, 'info');
 //     }
 
 //     await bill.deleteOne();
@@ -1007,12 +1279,10 @@
 // const generateBillPdf = async (req, res) => {
 //   const billId = req.params.id;
 //   try {
-//     const org = await getOrgDetails(req.organizationId);
 //     const bill = await Bill.findById(billId)
 //       .populate('company')
 //       .populate('consignee', 'name address gstNumber')
-//       .populate('challan', 'challanNumber descriptionOfGoods totalNetWeight totalCops broker')
-//       .populate('challans', 'challanNumber descriptionOfGoods totalNetWeight totalCops broker boxDetails');
+//       .populate('challan', 'challanNumber descriptionOfGoods totalNetWeight totalCops broker');
 //     if (!bill) {
 //       log(`PDF generation failed: Bill not found - ID: ${billId}`, 'warn');
 //       return res.status(404).json({ message: 'Bill not found.' });
@@ -1112,15 +1382,15 @@
 
 //     currentY -= Math.max(shreeGaneshHeight, taxInvoiceHeight) + 18;
 
-//     const companyNameText = org.name;
+//     const companyNameText = 'MAHADEV FILAMENTS';
 //     const companyNameFontSize = 25;
 //     currentY -= drawTextAndMeasureHeight(companyNameText, leftMargin, currentY, { font: boldFont, size: companyNameFontSize, align: 'center', color: rgb(0.1, 0.3, 0.5) });
 
-//     const addressText = org.address;
+//     const addressText = 'BLOCK NO - 15, 1ST FLOOR, AMBIKA VIBHAG - 2, NEAR NAVJIVAN CIRCLE, U.M. ROAD, SURAT - 395007';
 //     const addressFontSize = 9;
 //     currentY -= drawTextAndMeasureHeight(addressText, leftMargin, currentY + 14, { size: addressFontSize, align: 'center', maxWidth: contentWidth, spacingAfter: 4 });
 
-//     const companyGSTIN = org.gstin;
+//     const companyGSTIN = '24AABEFM9966E1ZZ';
 //     const companyStateCode = companyGSTIN.substring(0, 2);
 //     const gstinWithStateText = `GSTIN: ${companyGSTIN}     STATE CODE: ${companyStateCode}`;
 //     const gstinFontSize = 10;
@@ -1185,21 +1455,7 @@
 //     // Draw bill details (right side)
 //     yRight -= drawTextAndMeasureHeight(`Date : ${new Date(bill.billDate).toLocaleDateString('en-IN')}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
 //     yRight -= drawTextAndMeasureHeight(`Invoice No : ${bill.billNumber || 'N/A'}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
-//     const displayChallanNumber = (bill.challanNumber || bill.challan?.challanNumber || '')
-//       .split(',')
-//       .map(num => num.trim().split('/').pop())
-//       .join(', ');
-
-//     yRight -= drawTextAndMeasureHeight(
-//       `Challan No : ${displayChallanNumber}`,
-//       billDetailsX,
-//       yRight,
-//       {
-//         size: 10,
-//         spacingAfter: 4,
-//         maxWidth: billDetailsMaxWidth
-//       }
-//     );
+//     yRight -= drawTextAndMeasureHeight(`Challan No : ${bill.challanNumber || bill.challan?.challanNumber || ''}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
 //     // Print E-way bill number and Payment Terms after challan
 //     if (bill.eWayBillNumber) {
 //       yRight -= drawTextAndMeasureHeight(`E-way Bill No : ${bill.eWayBillNumber}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
@@ -1284,39 +1540,6 @@
 //       }
 //     }
 
-//     // Get total boxes and cops from challan(s)
-//     let totalBoxes = 0;
-//     let totalCops = 0;
-
-//     // if (bill.challan) {
-//     //   totalBoxes = bill.challan.boxDetails ? bill.challan.boxDetails.length : 0;
-//     //   totalCops = bill.challan.totalCops || 0;
-//     // }
-//     // if (bill.challans && bill.challans.length > 0) {
-//     //   bill.challans.forEach(challan => {
-//     //     totalBoxes += challan.boxDetails ? challan.boxDetails.length : 0;
-//     //     totalCops += challan.totalCops || 0;
-//     //   });
-//     // }
-
-
-//     if (bill.challans && bill.challans.length > 0) {
-//       // Multiple challans — use this block only
-//       bill.challans.forEach(challan => {
-//         totalBoxes += challan.boxDetails ? challan.boxDetails.length : 0;
-//         totalCops += challan.totalCops || 0;
-//       });
-//     } else if (bill.challan) {
-//       // Single challan fallback
-//       totalBoxes = bill.challan.boxDetails ? bill.challan.boxDetails.length : 0;
-//       totalCops = bill.challan.totalCops || 0;
-//     }
-
-//     // Print boxes summary in Description column area
-//     if (totalBoxes > 0 ) {
-//       y -= drawTextAndMeasureHeight(`Boxes: ${totalBoxes}  |  ${org.terminology?.copsLabel || 'Cops'}: ${totalCops}`, colPositions.desc, y, { font: boldFont, size: 9, spacingAfter: 0, color: rgb(0.2, 0.2, 0.2) });
-//     }
-
 //     page.drawLine({ start: { x: leftMargin, y: y }, end: { x: rightMargin, y: y }, thickness: 1.5, color: rgb(0.2, 0.2, 0.2) });
 //     y -= smallLineSpacing + 1;
 
@@ -1395,13 +1618,13 @@
 //     let bankDetailsY = y;
 //     const bankDetailsMaxWidth = contentWidth * 0.5;
 //     bankDetailsY -= drawTextAndMeasureHeight('Bank Details:', leftMargin, bankDetailsY, { font: boldFont, size: 12, spacingAfter: 4 });
-//     bankDetailsY -= drawTextAndMeasureHeight(`Bank Name: ${org.bankName}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
-//     bankDetailsY -= drawTextAndMeasureHeight(`Account Name: ${org.accountName}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
-//     bankDetailsY -= drawTextAndMeasureHeight(`Account No.: ${org.accountNo}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
-//     bankDetailsY -= drawTextAndMeasureHeight(`IFSC Code: ${org.ifsc}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 10, maxWidth: bankDetailsMaxWidth });
+//     bankDetailsY -= drawTextAndMeasureHeight('Bank Name: Prime Bank of India', leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
+//     bankDetailsY -= drawTextAndMeasureHeight('Account Name: Mahadev Filaments', leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
+//     bankDetailsY -= drawTextAndMeasureHeight('Account No.: 10062001003372', leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
+//     bankDetailsY -= drawTextAndMeasureHeight('IFSC Code: PMEC0100607', leftMargin, bankDetailsY, { size: 10, spacingAfter: 10, maxWidth: bankDetailsMaxWidth });
 
 //     let declarationTitleY = bankDetailsY;
-//     const forCompanyText = `For ${org.name}`;
+//     const forCompanyText = 'For MAHADEV FILAMENTS';
 //     const forCompanyFontSize = 11;
 //     const forCompanyOptions = { font: boldFont, size: forCompanyFontSize, spacingAfter: 3, align: 'right' };
 //     const forCompanyWidth = boldFont.widthOfTextAtSize(forCompanyText, forCompanyFontSize);
@@ -1447,18 +1670,42 @@
 //       color: rgb(0.1, 0.3, 0.5),
 //       opacity: 0.1,
 //     });
-//     const contactText = `Contact: ${org.contactPerson} | Phone: ${org.phone} | Email: ${org.email}`;
+//     const contactText = 'Contact: Bharat Radiya | Phone: 9825492079 | Email: mahadevfilaments@gmail.com';
 //     const contactTextWidth = font.widthOfTextAtSize(contactText, 9);
 //     drawTextAndMeasureHeight(contactText, leftMargin + (contentWidth - contactTextWidth) / 2, y, { size: 9, spacingAfter: 0, color: rgb(0.3, 0.3, 0.3) });
 
 //     const pdfBytes = await pdfDoc.save();
-//     const pdfFileName = `Bill-${bill.billNumber.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+//     const outputDir = path.join(__dirname, '..', 'generated_bills', 'pdf');
+//     await fsPromises.mkdir(outputDir, { recursive: true });
 
-//     log(`PDF generated for bill ${bill.billNumber}`, 'info');
+//     const pdfFileName = `Bill-${bill.billNumber.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+//     const pdfFilePath = path.join(outputDir, pdfFileName);
+
+//     await fsPromises.writeFile(pdfFilePath, pdfBytes);
+//     await fsPromises.access(pdfFilePath, fs.constants.R_OK);
+
+//     bill.pdfFilePath = pdfFilePath;
+//     await bill.save();
+
+//     log(`PDF generated for bill ${bill.billNumber}: ${pdfFilePath}`, 'info');
 
 //     res.setHeader('Content-Type', 'application/pdf');
 //     res.setHeader('Content-Disposition', `attachment; filename="${pdfFileName}"`);
-//     res.send(Buffer.from(pdfBytes));
+
+//     const fileStream = fs.createReadStream(pdfFilePath);
+//     fileStream.pipe(res);
+
+//     fileStream.on('error', (streamErr) => {
+//       log(`Error streaming PDF file for bill ${bill.billNumber}: ${streamErr.message}`, 'error');
+//       if (!res.headersSent) {
+//         res.status(500).json({ message: 'Failed to stream PDF file.' });
+//       }
+//     });
+
+//     fileStream.on('end', () => {
+//       log(`PDF file streamed for bill ${bill.billNumber}`, 'info');
+//       res.end();
+//     });
 //   } catch (error) {
 //     log(`Error generating PDF for bill ID ${billId}: ${error.message} - Stack: ${error.stack}`, 'error');
 //     if (!res.headersSent) {
@@ -1503,7 +1750,7 @@
 // // @access  Private/Admin
 // const downloadBillsExcel = async (req, res) => {
 //   const { companyId, startDate, endDate, status, month, year } = req.query;
-//   const query = { organizationId: req.organizationId };
+//   const query = {};
 
 //   if (companyId) query.company = companyId;
 //   if (status) query.status = status;
@@ -1663,7 +1910,7 @@
 // // @access  Private/Admin
 // const downloadBillsPdf = async (req, res) => {
 //   const { companyId, startDate, endDate, status, month, year } = req.query;
-//   const query = { organizationId: req.organizationId };
+//   const query = {};
 
 //   if (companyId) query.company = companyId;
 //   if (status) query.status = status;
@@ -2060,6 +2307,8 @@
 
 //     // Save PDF
 //     const pdfBytes = await pdfDoc.save();
+//     const outputDir = path.join(__dirname, '..', 'generated_bills', 'pdf');
+//     await fsPromises.mkdir(outputDir, { recursive: true });
 
 //     let fileName = 'Bills_Report';
 //     if (month && year) {
@@ -2070,12 +2319,29 @@
 //       fileName += `_Company_${companyId}`;
 //     }
 //     fileName += '.pdf';
+//     const pdfFilePath = path.join(outputDir, fileName);
 
-//     log(`PDF report generated: ${fileName}`, 'info');
+//     await fsPromises.writeFile(pdfFilePath, pdfBytes);
+//     await fsPromises.access(pdfFilePath, fs.constants.R_OK);
+
+//     log(`PDF report generated: ${pdfFilePath}`, 'info');
 
 //     res.setHeader('Content-Type', 'application/pdf');
 //     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-//     res.send(Buffer.from(pdfBytes));
+
+//     const fileStream = fs.createReadStream(pdfFilePath);
+//     fileStream.pipe(res);
+    
+//     fileStream.on('error', (streamErr) => {
+//       log(`Error streaming PDF report: ${streamErr.message}`, 'error');
+//       if (!res.headersSent) {
+//         res.status(500).json({ message: 'Failed to stream PDF report.' });
+//       }
+//     });
+    
+//     fileStream.on('end', () => {
+//       log(`PDF report streamed successfully: ${fileName}`, 'info');
+//     });
     
 //   } catch (error) {
 //     log(`Error generating PDF report: ${error.message} - Stack: ${error.stack}`, 'error');
@@ -2084,6 +2350,366 @@
 //     }
 //   }
 // };
+
+// // @desc    Create a new bill from multiple challans (group by description)
+// // @route   POST /api/bills/from-challans
+// // @access  Private/Admin
+// // const createBillFromChallans = async (req, res) => {
+// //   const {
+// //     billNumber,
+// //     billDate,
+// //     companyId,
+// //     consigneeId,
+// //     isConsigneeDifferent = false,
+// //     selectedChallanIds = [],
+// //     groupedRates = {}, // { description: rate }
+// //     discountPercentage = 0,
+// //     taxType,
+// //     overrideCgstPercentage,
+// //     overrideSgstPercentage,
+// //     overrideIgstPercentage,
+// //     overrideJobCgstPercentage,
+// //     overrideJobSgstPercentage,
+// //     status,
+// //     amountInWords,
+// //     eWayBillNumber = '',
+// //     paymentTermsDays = 30,
+// //   } = req.body;
+
+// //   if (!billNumber || !companyId || !Array.isArray(selectedChallanIds) || selectedChallanIds.length === 0 || !taxType) {
+// //     return res.status(400).json({ message: 'Missing required fields: billNumber, companyId, selectedChallanIds, taxType.' });
+// //   }
+
+// //   if (!['CGST_SGST', 'IGST', 'JOBCGST_JOBSGST'].includes(taxType)) {
+// //     return res.status(400).json({ message: 'Invalid tax type' });
+// //   }
+
+// //   try {
+// //     const company = await Company.findById(companyId);
+// //     if (!company) {
+// //       return res.status(404).json({ message: 'Company not found.' });
+// //     }
+
+// //     // Handle consignee details
+// //     let consignee = null;
+// //     let consigneeDetailsSnapshot = null;
+// //     if (isConsigneeDifferent && consigneeId) {
+// //       consignee = await Company.findById(consigneeId);
+// //       if (!consignee) {
+// //         return res.status(404).json({ message: 'Consignee company not found.' });
+// //       }
+// //       const consigneeStateCode = consignee.gstNumber && consignee.gstNumber.length >= 2 ? consignee.gstNumber.substring(0, 2) : '';
+// //       consigneeDetailsSnapshot = {
+// //         name: consignee.name,
+// //         address: consignee.address,
+// //         gstNumber: consignee.gstNumber,
+// //         stateCode: consigneeStateCode,
+// //       };
+// //     }
+
+// //     // Fetch challans and validate
+// //     const challans = await Challan.find({ _id: { $in: selectedChallanIds } });
+// //     if (challans.length !== selectedChallanIds.length) {
+// //       return res.status(400).json({ message: 'One or more challans not found.' });
+// //     }
+
+// //     for (const ch of challans) {
+// //       if (ch.company.toString() !== companyId) {
+// //         return res.status(400).json({ message: `Challan ${ch.challanNumber} does not belong to the selected company.` });
+// //       }
+// //       if (ch.isUsed) {
+// //         return res.status(400).json({ message: `Challan ${ch.challanNumber} is already used in another bill.` });
+// //       }
+// //     }
+
+// //     const settings = await Settings.getSettings();
+
+// //     // Group by description and sum quantity
+// //     const groupMap = new Map(); // key: description, value: { quantity, hsnSacCode, challanNumbers: [] }
+// //     const allChallanNumbers = [];
+
+// //     challans.forEach(ch => {
+// //       const desc = ch.descriptionOfGoods;
+// //       const itemConfig = settings.itemConfigurations.find(it => it.description === desc);
+// //       const hsn = itemConfig?.hsnSacCode || '';
+
+// //       const existing = groupMap.get(desc) || { quantity: 0, hsnSacCode: hsn, challanNumbers: [] };
+// //       existing.quantity += Number(ch.totalNetWeight || 0);
+// //       existing.hsnSacCode = hsn; // ensure latest from settings
+// //       existing.challanNumbers.push(ch.challanNumber);
+// //       groupMap.set(desc, existing);
+
+// //       allChallanNumbers.push(ch.challanNumber);
+// //     });
+
+// //     // Build items from groups; require rate for each description
+// //     const finalItems = [];
+// //     for (const [desc, data] of groupMap.entries()) {
+// //       const rate = parseFloat(groupedRates[desc]);
+// //       if (isNaN(rate)) {
+// //         return res.status(400).json({ message: `Rate missing/invalid for description '${desc}'.` });
+// //       }
+// //       const amount = parseFloat((data.quantity * rate).toFixed(2));
+// //       finalItems.push({
+// //         description: desc,
+// //         hsnSacCode: data.hsnSacCode || '',
+// //         quantity: parseFloat(data.quantity.toFixed(2)),
+// //         rate,
+// //         amount,
+// //       });
+// //     }
+
+// //     const companyDetailsSnapshot = {
+// //       name: company.name,
+// //       address: company.address,
+// //       gstNumber: company.gstNumber,
+// //     };
+
+// //     const cgstRate = overrideCgstPercentage !== undefined ? overrideCgstPercentage : settings.cgstPercentage;
+// //     const sgstRate = overrideSgstPercentage !== undefined ? overrideSgstPercentage : settings.sgstPercentage;
+// //     const igstRate = overrideIgstPercentage !== undefined ? overrideIgstPercentage : settings.igstPercentage;
+// //     const jobCgstRate = overrideJobCgstPercentage !== undefined ? overrideJobCgstPercentage : settings.jobCgstPercentage;
+// //     const jobSgstRate = overrideJobSgstPercentage !== undefined ? overrideJobSgstPercentage : settings.jobSgstPercentage;
+
+// //     const calculated = calculateBillTotals(finalItems, discountPercentage, taxType, cgstRate, sgstRate, igstRate, jobCgstRate, jobSgstRate);
+
+// //     const joinedChallanNumber = allChallanNumbers.join('/');
+
+// //     const newBill = new Bill({
+// //       billNumber,
+// //       billDate: billDate ? new Date(billDate) : new Date(),
+// //       challan: null,
+// //       challanNumber: joinedChallanNumber,
+// //       company: companyId,
+// //       companyDetailsSnapshot,
+// //       isConsigneeDifferent: isConsigneeDifferent || false,
+// //       consignee: isConsigneeDifferent ? consigneeId : null,
+// //       consigneeDetailsSnapshot,
+// //       items: calculated.items,
+// //       subTotalAmount: calculated.subTotalAmount,
+// //       discountPercentage,
+// //       discountAmount: calculated.discountAmount,
+// //       amountAfterDiscount: calculated.amountAfterDiscount,
+// //       taxType,
+// //       cgstPercentage: taxType === 'CGST_SGST' ? cgstRate : 0,
+// //       cgstAmount: calculated.cgstAmount,
+// //       sgstPercentage: taxType === 'CGST_SGST' ? sgstRate : 0,
+// //       sgstAmount: calculated.sgstAmount,
+// //       igstPercentage: taxType === 'IGST' ? igstRate : 0,
+// //       igstAmount: calculated.igstAmount,
+// //       jobCgstPercentage: taxType === 'JOBCGST_JOBSGST' ? jobCgstRate : 0,
+// //       jobCgstAmount: calculated.jobCgstAmount,
+// //       jobSgstPercentage: taxType === 'JOBCGST_JOBSGST' ? jobSgstRate : 0,
+// //       jobSgstAmount: calculated.jobSgstAmount,
+// //       totalTaxAmount: calculated.totalTaxAmount,
+// //       roundOffAmount: calculated.roundOffAmount,
+// //       totalAmount: calculated.totalAmount,
+// //       amountInWords: amountInWords || '',
+// //       eWayBillNumber: eWayBillNumber || '',
+// //       paymentTermsDays: paymentTermsDays || 30,
+// //       status: status || 'Pending',
+// //       createdBy: req.user._id,
+// //     });
+
+// //     const savedBill = await newBill.save();
+
+// //     // mark challans used
+// //     for (const ch of challans) {
+// //       await Challan.findByIdAndUpdate(ch._id, { isUsed: true, bill: savedBill._id }, { new: true });
+// //     }
+
+// //     log(`Bill (from challans) created successfully: ${savedBill.billNumber} by ${req.user.email}`, 'info');
+// //     res.status(201).json(savedBill);
+// //   } catch (error) {
+// //     log(`Error creating bill from challans: ${error.message} - Stack: ${error.stack}`, 'error');
+// //     if (error.code === 11000 || error.message.includes('duplicate key')) {
+// //       return res.status(400).json({ message: `Bill number '${billNumber}' already exists.` });
+// //     }
+// //     if (error.name === 'ValidationError') {
+// //       return res.status(400).json({ message: error.message });
+// //     }
+// //     res.status(500).json({ message: 'Server error while creating bill from challans.' });
+// //   }
+// // };
+
+
+// // const createBillFromChallans = async (req, res) => {
+// //   let {
+// //     billNumber,
+// //     billDate,
+// //     companyId,
+// //     challanIds = [],
+// //     discountPercentage = 0,
+// //     taxType,
+// //     overrideCgstPercentage,
+// //     overrideSgstPercentage,
+// //     overrideIgstPercentage,
+// //     overrideJobCgstPercentage,
+// //     overrideJobSgstPercentage,
+// //     status,
+// //     amountInWords,
+// //     eWayBillNumber = '',
+// //     paymentTermsDays = 30,
+// //     financialYear
+// //   } = req.body;
+
+// //   if (!companyId || !challanIds.length || !taxType) {
+// //     return res.status(400).json({
+// //       message: 'companyId, challanIds and taxType are required.'
+// //     });
+// //   }
+
+// //   if (!['CGST_SGST', 'IGST', 'JOBCGST_JOBSGST'].includes(taxType)) {
+// //     return res.status(400).json({ message: 'Invalid tax type' });
+// //   }
+
+// //   try {
+// //     const company = await Company.findById(companyId);
+// //     if (!company) return res.status(404).json({ message: 'Company not found.' });
+
+// //     // ===============================
+// //     // ✅ FINANCIAL YEAR LOGIC
+// //     // ===============================
+// //     const resolvedDate = billDate ? new Date(billDate) : new Date();
+// //     const resolvedFY = financialYear || getFinancialYear(resolvedDate);
+
+// //     // ===============================
+// //     // ✅ AUTO BILL NUMBER
+// //     // ===============================
+// //     if (!billNumber) {
+// //       billNumber = await generateBillNumber(resolvedFY);
+// //     } else {
+// //       const expectedPrefix = `${resolvedFY}/`;
+
+// //       if (!billNumber.startsWith(expectedPrefix)) {
+// //         return res.status(400).json({
+// //           message: `Bill number must follow format "${expectedPrefix}XX"`
+// //         });
+// //       }
+// //     }
+
+// //     // ===============================
+// //     // ✅ FETCH CHALLANS
+// //     // ===============================
+// //     const challans = await Challan.find({
+// //       _id: { $in: challanIds },
+// //       company: companyId
+// //     });
+
+// //     if (challans.length !== challanIds.length) {
+// //       return res.status(400).json({
+// //         message: 'Some challans not found or not belong to company'
+// //       });
+// //     }
+
+// //     // Check already used
+// //     const alreadyUsed = challans.find(c => c.isUsed);
+// //     if (alreadyUsed) {
+// //       return res.status(400).json({
+// //         message: `Challan ${alreadyUsed.challanNumber} already used`
+// //       });
+// //     }
+
+// //     // ===============================
+// //     // ✅ CREATE ITEMS FROM CHALLANS
+// //     // ===============================
+// //     const settings = await Settings.getSettings();
+
+// //     const items = [];
+
+// //     for (const challan of challans) {
+// //       const itemConfig = settings.itemConfigurations.find(
+// //         item => item.description === challan.descriptionOfGoods
+// //       );
+
+// //       items.push({
+// //         description: challan.descriptionOfGoods,
+// //         hsnSacCode: itemConfig?.hsnSacCode || '',
+// //         quantity: challan.totalNetWeight,
+// //         rate: itemConfig?.defaultRate || 0,
+// //         amount: Math.round(challan.totalNetWeight * (itemConfig?.defaultRate || 0)),
+// //       });
+// //     }
+
+// //     // ===============================
+// //     // ✅ CALCULATE TOTAL
+// //     // ===============================
+// //     const calculated = calculateBillTotals(
+// //       items,
+// //       discountPercentage,
+// //       taxType,
+// //       overrideCgstPercentage ?? settings.cgstPercentage,
+// //       overrideSgstPercentage ?? settings.sgstPercentage,
+// //       overrideIgstPercentage ?? settings.igstPercentage,
+// //       overrideJobCgstPercentage ?? settings.jobCgstPercentage,
+// //       overrideJobSgstPercentage ?? settings.jobSgstPercentage
+// //     );
+
+// //     // ===============================
+// //     // ✅ CREATE BILL
+// //     // ===============================
+// //     const newBill = new Bill({
+// //       billNumber,
+// //       financialYear: resolvedFY,
+// //       billDate: resolvedDate,
+// //       company: companyId,
+
+// //       challans: challanIds, // if you store multiple
+// //       challanNumber: challans.map(c => c.challanNumber).join(', '),
+
+// //       items: calculated.items,
+// //       subTotalAmount: calculated.subTotalAmount,
+// //       discountPercentage,
+// //       discountAmount: calculated.discountAmount,
+// //       amountAfterDiscount: calculated.amountAfterDiscount,
+// //       taxType,
+
+// //       cgstAmount: calculated.cgstAmount,
+// //       sgstAmount: calculated.sgstAmount,
+// //       igstAmount: calculated.igstAmount,
+// //       jobCgstAmount: calculated.jobCgstAmount,
+// //       jobSgstAmount: calculated.jobSgstAmount,
+
+// //       totalTaxAmount: calculated.totalTaxAmount,
+// //       roundOffAmount: calculated.roundOffAmount,
+// //       totalAmount: calculated.totalAmount,
+
+// //       amountInWords,
+// //       eWayBillNumber,
+// //       paymentTermsDays,
+// //       status: status || 'Pending',
+// //       createdBy: req.user._id,
+// //     });
+
+// //     const savedBill = await newBill.save();
+
+// //     // ===============================
+// //     // ✅ MARK CHALLANS USED
+// //     // ===============================
+// //     await Challan.updateMany(
+// //       { _id: { $in: challanIds } },
+// //       { isUsed: true, bill: savedBill._id }
+// //     );
+
+// //     log(`Bill created from challans: ${billNumber} (FY ${resolvedFY})`, 'info');
+
+// //     res.status(201).json(savedBill);
+
+// //   } catch (error) {
+// //     log(`Error creating bill from challans: ${error.message}`, 'error');
+
+// //     if (error.code === 11000) {
+// //       return res.status(400).json({
+// //         message: `Bill number '${billNumber}' already exists.`
+// //       });
+// //     }
+
+// //     res.status(500).json({
+// //       message: 'Server error while creating bill from challans.'
+// //     });
+// //   }
+// // };
+
 
 // const createBillFromChallans = async (req, res) => {
 //   let {
@@ -2116,13 +2742,20 @@
 //   }
 
 //   try {
+//     // ===============================
+//     // ✅ FINANCIAL YEAR
+//     // ===============================
 //     const resolvedDate = billDate ? new Date(billDate) : new Date();
 //     const resolvedFY = financialYear || getFinancialYear(resolvedDate);
 
+//     // ===============================
+//     // ✅ AUTO BILL NUMBER
+//     // ===============================
 //     if (!billNumber) {
-//       billNumber = await generateBillNumber(resolvedFY, req.organizationId);
+//       billNumber = await generateBillNumber(resolvedFY);
 //     } else {
 //       const expectedPrefix = `${resolvedFY}/`;
+
 //       if (!billNumber.startsWith(expectedPrefix)) {
 //         return res.status(400).json({
 //           message: `Bill number must follow format "${expectedPrefix}XX"`
@@ -2130,6 +2763,9 @@
 //       }
 //     }
 
+//     // ===============================
+//     // ✅ FETCH CHALLANS
+//     // ===============================
 //     const challans = await Challan.find({
 //       _id: { $in: challanIds },
 //       company: companyId
@@ -2141,20 +2777,31 @@
 //       });
 //     }
 
+//     // ===============================
+//     // ❗ IMPORTANT FIX (YOUR MAIN ISSUE)
+//     // ===============================
 //     for (const challan of challans) {
 //       if (challan.financialYear !== resolvedFY) {
 //         return res.status(400).json({
 //           message: `Challan ${challan.challanNumber} belongs to different financial year`
 //         });
 //       }
-//       if (challan.isUsed) {
-//         return res.status(400).json({
-//           message: `Challan ${challan.challanNumber} already used`
-//         });
-//       }
 //     }
 
-//     const settings = await Settings.getSettings(req.organizationId);
+//     // ===============================
+//     // ✅ CHECK USED
+//     // ===============================
+//     const alreadyUsed = challans.find(c => c.isUsed);
+//     if (alreadyUsed) {
+//       return res.status(400).json({
+//         message: `Challan ${alreadyUsed.challanNumber} already used`
+//       });
+//     }
+
+//     // ===============================
+//     // ✅ CREATE ITEMS
+//     // ===============================
+//     const settings = await Settings.getSettings();
 //     const items = [];
 
 //     for (const challan of challans) {
@@ -2173,6 +2820,9 @@
 //       });
 //     }
 
+//     // ===============================
+//     // ✅ CALCULATE TOTALS
+//     // ===============================
 //     const calculated = calculateBillTotals(
 //       items,
 //       discountPercentage,
@@ -2184,28 +2834,35 @@
 //       overrideJobSgstPercentage ?? settings.jobSgstPercentage
 //     );
 
+//     // ===============================
+//     // ✅ CREATE BILL
+//     // ===============================
 //     const newBill = new Bill({
-//       organizationId: req.organizationId,
 //       billNumber,
-//       financialYear: resolvedFY,
+//       financialYear: resolvedFY, // ✅ IMPORTANT
 //       billDate: resolvedDate,
 //       company: companyId,
+
 //       challans: challanIds,
 //       challanNumber: challans.map(c => c.challanNumber).join(', '),
+
 //       items: calculated.items,
 //       subTotalAmount: calculated.subTotalAmount,
 //       discountPercentage,
 //       discountAmount: calculated.discountAmount,
 //       amountAfterDiscount: calculated.amountAfterDiscount,
 //       taxType,
+
 //       cgstAmount: calculated.cgstAmount,
 //       sgstAmount: calculated.sgstAmount,
 //       igstAmount: calculated.igstAmount,
 //       jobCgstAmount: calculated.jobCgstAmount,
 //       jobSgstAmount: calculated.jobSgstAmount,
+
 //       totalTaxAmount: calculated.totalTaxAmount,
 //       roundOffAmount: calculated.roundOffAmount,
 //       totalAmount: calculated.totalAmount,
+
 //       amountInWords,
 //       eWayBillNumber,
 //       paymentTermsDays,
@@ -2215,6 +2872,9 @@
 
 //     const savedBill = await newBill.save();
 
+//     // ===============================
+//     // ✅ MARK CHALLANS USED
+//     // ===============================
 //     await Challan.updateMany(
 //       { _id: { $in: challanIds } },
 //       { isUsed: true, bill: savedBill._id }
@@ -2251,8 +2911,6 @@
 // };
 
 
-//
-
 const Bill = require('../models/Bill');
 const Company = require('../models/Company');
 const Settings = require('../models/Settings');
@@ -2264,18 +2922,71 @@ const fs = require('fs');
 const path = require('path');
 const { PDFDocument, StandardFonts, rgb, PageSizes } = require('pdf-lib');
 const fontkit = require('fontkit');
-const { getOrgDetails } = require('../utils/orgDetails');
 
+// const getNextBillNumber = async (req, res) => {
+//   try {
+//     const financialYear = req.query.financialYear || getFinancialYear();
+//     const nextNumber = await generateBillNumber(financialYear);
+
+//     res.json({
+//       billNumber: nextNumber,
+//       financialYear,
+//     });
+//   } catch (error) {
+//     log(`Error fetching next bill number: ${error.message}`, 'error');
+//     res.status(500).json({ message: 'Server error while fetching next bill number.' });
+//   }
+// };
+
+// ===============================
+// ✅ FINANCIAL YEAR HELPER
+// ===============================
 const getNextBillNumber = async (req, res) => {
   try {
     const financialYear = req.query.financialYear || getFinancialYear();
-    const billNumber = await generateBillNumber(financialYear, req.organizationId);
+    const billNumber = await generateBillNumber(financialYear);
 
     res.json({ billNumber, financialYear });
   } catch (error) {
     res.status(500).json({ message: 'Error generating bill number' });
   }
 };
+// const getFinancialYear = (date = new Date()) => {
+//   const d = new Date(date);
+//   const month = d.getMonth();
+//   const year = d.getFullYear();
+
+//   if (month >= 3) {
+//     return `${year}-${String(year + 1).slice(-2)}`;
+//   } else {
+//     return `${year - 1}-${String(year).slice(-2)}`;
+//   }
+// };
+
+// // ===============================
+// // ✅ GENERATE BILL NUMBER
+// // ===============================
+// const generateBillNumber = async (financialYear) => {
+//   const prefix = `${financialYear}/`;
+
+//   const lastBill = await Bill.findOne({
+//     billNumber: { $regex: `^${prefix.replace('-', '\\-')}` },
+//   }).sort({ billNumber: -1 });
+
+//   let nextSeq = 1;
+
+//   if (lastBill) {
+//     const parts = lastBill.billNumber.split('/');
+//     const lastSeq = parseInt(parts[parts.length - 1], 10);
+//     if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
+//   }
+
+//   return `${prefix}${String(nextSeq).padStart(2, '0')}`;
+// };
+
+// ===============================
+// ✅ FINANCIAL YEAR HELPER
+// ===============================
 const getFinancialYear = (date = new Date()) => {
   const d = new Date(date);
   const month = d.getMonth();
@@ -2291,49 +3002,23 @@ const getFinancialYear = (date = new Date()) => {
 // ===============================
 // ✅ GENERATE BILL NUMBER
 // ===============================
-// const generateBillNumber = async (financialYear, organizationId) => {
-//   const prefix = `${financialYear}/`;
-
-//   const lastBill = await Bill.findOne({
-//     billNumber: { $regex: `^${prefix.replace('-', '\\-')}` },
-//     organizationId,
-//   }).sort({ billNumber: -1 });
-
-//   let nextSeq = 1;
-
-//   if (lastBill) {
-//     const parts = lastBill.billNumber.split('/');
-//     const lastSeq = parseInt(parts[parts.length - 1], 10);
-//     if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
-//   }
-
-//   return `${prefix}${String(nextSeq).padStart(2, '0')}`;
-// };
-
-const generateBillNumber = async (financialYear, organizationId) => {
+const generateBillNumber = async (financialYear) => {
   const prefix = `${financialYear}/`;
 
-  const bills = await Bill.find({
+  const lastBill = await Bill.findOne({
     billNumber: { $regex: `^${prefix.replace('-', '\\-')}` },
-    organizationId,
-  }).select("billNumber");
+  }).sort({ billNumber: -1 });
 
-  let maxSeq = 0;
+  let nextSeq = 1;
 
-  bills.forEach((bill) => {
-    const parts = bill.billNumber.split('/');
-    const seq = parseInt(parts[parts.length - 1], 10);
-
-    if (!isNaN(seq) && seq > maxSeq) {
-      maxSeq = seq;
-    }
-  });
-
-  const nextSeq = maxSeq + 1;
+  if (lastBill) {
+    const parts = lastBill.billNumber.split('/');
+    const lastSeq = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
+  }
 
   return `${prefix}${String(nextSeq).padStart(2, '0')}`;
 };
-
 const calculateBillTotals = (
 
   items,
@@ -2438,6 +3123,90 @@ const calculateBillTotals = (
   };
 };
 
+// @desc    Get available challans for a company
+// @route   GET /api/bills/challans/:companyId
+// @access  Private/Admin
+// const getAvailableChallans = async (req, res) => {
+//   const { companyId } = req.params;
+//   try {
+//     const usedChallans = await Bill.find({ company: companyId, challan: { $ne: null } }).distinct('challan');
+//     const availableChallans = await Challan.find({
+//       company: companyId,
+//       _id: { $nin: usedChallans },
+//     }).select('challanNumber challanDate descriptionOfGoods totalNetWeight totalCops broker');
+
+//     log(`Fetched available challans for company ID ${companyId} by ${req.user.email}`, 'info');
+//     res.json(availableChallans);
+//   } catch (error) {
+//     log(`Error fetching available challans: ${error.message}`, 'error');
+//     res.status(500).json({ message: 'Server error while fetching available challans.' });
+//   }
+// };
+
+// const getAvailableChallans = async (req, res) => {
+//   const { companyId } = req.params;
+//   const { financialYear } = req.query;
+
+//   try {
+//     if (!companyId) {
+//       return res.status(400).json({ message: "Company ID required" });
+//     }
+
+//     // ===============================
+//     // ✅ FETCH ALL BILLS FOR COMPANY + FY
+//     // ===============================
+//     const bills = await Bill.find({
+//       company: companyId,
+//       financialYear
+//     }).select("challan challans");
+
+//     // ===============================
+//     // ✅ EXTRACT USED CHALLANS (FIXED)
+//     // ===============================
+//     const usedChallanIds = [];
+
+//     bills.forEach((bill) => {
+//       // single challan
+//       if (bill.challan) {
+//         usedChallanIds.push(bill.challan.toString());
+//       }
+
+//       // multiple challans
+//       if (Array.isArray(bill.challans)) {
+//         bill.challans.forEach((id) => {
+//           usedChallanIds.push(id);
+//         });
+//       }
+//     });
+
+//     // ===============================
+//     // ✅ FETCH AVAILABLE CHALLANS
+//     // ===============================
+//     const challans = await Challan.find({
+//       company: companyId,
+//       financialYear,
+//       isUsed: false,
+//       _id: { $nin: usedChallanIds }
+//     }).select(
+//       "challanNumber challanDate descriptionOfGoods totalNetWeight totalCops broker"
+//     );
+
+//     // DEBUG (optional)
+//     console.log("FY:", financialYear);
+//     console.log("Company:", companyId);
+//     console.log("Used IDs:", usedChallanIds);
+//     console.log("Available:", challans.length);
+
+//     res.json(challans);
+
+//   } catch (error) {
+//     console.error("Error fetching challans:", error);
+//     res.status(500).json({ message: "Error fetching challans" });
+//   }
+// };
+
+// 
+
 const getAvailableChallans = async (req, res) => {
   const { companyId } = req.params;
   const { financialYear } = req.query;
@@ -2489,14 +3258,350 @@ const getAvailableChallans = async (req, res) => {
     res.status(500).json({ message: "Error fetching challans" });
   }
 };
+// @desc    Create a new bill
+// @route   POST /api/bills
+// @access  Private/Admin
+// const createBill = async (req, res) => {
+//   const {
+//     billNumber,
+//     billDate,
+//     companyId,
+//     consigneeId,
+//     isConsigneeDifferent = false,
+//     challanId,
+//     challanNumber,
+//     items,
+//     rate,
+//     discountPercentage = 0,
+//     taxType,
+//     overrideCgstPercentage,
+//     overrideSgstPercentage,
+//     overrideIgstPercentage,
+//     overrideJobCgstPercentage,
+//     overrideJobSgstPercentage,
+//     status,
+//     amountInWords,
+//     eWayBillNumber = '',
+//     paymentTermsDays = 30
+//   } = req.body;
+
+//   if (!billNumber || !companyId || (!challanId && (!items || items.length === 0)) || !taxType) {
+//     return res.status(400).json({ message: 'Missing required fields: billNumber, companyId, items (unless challanId is provided), taxType.' });
+//   }
+
+//   if (!['CGST_SGST', 'IGST', 'JOBCGST_JOBSGST'].includes(taxType)) {
+//     return res.status(400).json({ message: 'Invalid tax type' });
+//   }
+
+//   try {
+//     const company = await Company.findById(companyId);
+//     if (!company) {
+//       log(`Bill creation failed: Company not found - ID: ${companyId}`, 'warn');
+//       return res.status(404).json({ message: 'Company not found.' });
+//     }
+
+//     // Handle consignee details
+//     let consignee = null;
+//     let consigneeDetailsSnapshot = null;
+    
+//     if (isConsigneeDifferent && consigneeId) {
+//       consignee = await Company.findById(consigneeId);
+//       if (!consignee) {
+//         return res.status(404).json({ message: 'Consignee company not found.' });
+//       }
+      
+//       // Extract state code from GSTIN
+//       const consigneeStateCode = consignee.gstNumber && consignee.gstNumber.length >= 2 ? 
+//         consignee.gstNumber.substring(0, 2) : '';
+      
+//       consigneeDetailsSnapshot = {
+//         name: consignee.name,
+//         address: consignee.address,
+//         gstNumber: consignee.gstNumber,
+//         stateCode: consigneeStateCode,
+//       };
+//     }
+
+//     let challan = null;
+//     let finalChallanNumber = challanNumber || '';
+//     let finalItems = items || [];
+
+//     if (challanId) {
+//       challan = await Challan.findById(challanId);
+//       if (!challan) {
+//         return res.status(404).json({ message: 'Challan not found.' });
+//       }
+//       if (challan.company.toString() !== companyId) {
+//         return res.status(400).json({ message: 'Challan does not belong to the selected company.' });
+//       }
+//       if (challan.isUsed) {
+//         return res.status(400).json({ message: `Challan ${challan.challanNumber} is already used in another bill.` });
+//       }
+//       finalChallanNumber = challan.challanNumber;
+//       const settings = await Settings.getSettings();
+//       const itemConfig = settings.itemConfigurations.find(item => item.description === challan.descriptionOfGoods);
+//       if (!itemConfig) {
+//         return res.status(400).json({ message: 'No item configuration found for the challan\'s description of goods.' });
+//       }
+//       const itemRate = rate !== undefined ? rate : itemConfig.defaultRate || 0;
+//       finalItems = [{
+//         description: challan.descriptionOfGoods,
+//         hsnSacCode: itemConfig.hsnSacCode || '',
+//         quantity: challan.totalNetWeight,
+//         rate: itemRate,
+//         amount: Math.round(challan.totalNetWeight * itemRate),
+//       }];
+//     }
+
+//     if (finalItems.length === 0) {
+//       return res.status(400).json({ message: 'Items array cannot be empty.' });
+//     }
+
+//     const companyDetailsSnapshot = {
+//       name: company.name,
+//       address: company.address,
+//       gstNumber: company.gstNumber,
+//     };
+
+//     const settings = await Settings.getSettings();
+//     const cgstRate = overrideCgstPercentage !== undefined ? overrideCgstPercentage : settings.cgstPercentage;
+//     const sgstRate = overrideSgstPercentage !== undefined ? overrideSgstPercentage : settings.sgstPercentage;
+//     const igstRate = overrideIgstPercentage !== undefined ? overrideIgstPercentage : settings.igstPercentage;
+//     const jobCgstRate = overrideJobCgstPercentage !== undefined ? overrideJobCgstPercentage : settings.jobCgstPercentage;
+//     const jobSgstRate = overrideJobSgstPercentage !== undefined ? overrideJobSgstPercentage : settings.jobSgstPercentage;
+
+//     const calculated = calculateBillTotals(finalItems, discountPercentage, taxType, cgstRate, sgstRate, igstRate, jobCgstRate, jobSgstRate);
+
+//     const newBill = new Bill({
+//       billNumber,
+//       billDate: billDate ? new Date(billDate) : new Date(),
+//       challan: challanId || null,
+//       challanNumber: finalChallanNumber,
+//       company: companyId,
+//       companyDetailsSnapshot,
+//       isConsigneeDifferent: isConsigneeDifferent || false,
+//       consignee: isConsigneeDifferent ? consigneeId : null,
+//       consigneeDetailsSnapshot,
+//       items: calculated.items,
+//       subTotalAmount: calculated.subTotalAmount,
+//       discountPercentage,
+//       discountAmount: calculated.discountAmount,
+//       amountAfterDiscount: calculated.amountAfterDiscount,
+//       taxType,
+
+//       cgstPercentage: taxType === 'CGST_SGST' ? cgstRate : 0,
+//       cgstAmount: calculated.cgstAmount,
+
+//       sgstPercentage: taxType === 'CGST_SGST' ? sgstRate : 0,
+//       sgstAmount: calculated.sgstAmount,
+
+//       igstPercentage: taxType === 'IGST' ? igstRate : 0,
+//       igstAmount: calculated.igstAmount,
+
+//       jobCgstPercentage: taxType === 'JOBCGST_JOBSGST' ? jobCgstRate : 0,
+//       jobCgstAmount: calculated.jobCgstAmount,
+
+//       jobSgstPercentage: taxType === 'JOBCGST_JOBSGST' ? jobSgstRate : 0,
+//       jobSgstAmount: calculated.jobSgstAmount,
+
+//       totalTaxAmount: calculated.totalTaxAmount,
+
+//       roundOffAmount: calculated.roundOffAmount,
+
+//       totalAmount: calculated.totalAmount,
+
+//       amountInWords: amountInWords || '',
+//       eWayBillNumber: eWayBillNumber || '',
+//       paymentTermsDays: paymentTermsDays || 30,
+//       status: status || 'Pending',
+//       createdBy: req.user._id,
+//     });
+
+//     const savedBill = await newBill.save();
+
+//     if (challanId) {
+//       await Challan.findByIdAndUpdate(
+//         challanId,
+//         { isUsed: true, bill: savedBill._id },
+//         { new: true }
+//       );
+//       log(`Challan ${challan.challanNumber} marked as used and linked to bill ${savedBill.billNumber}`, 'info');
+//     }
+
+//     log(`Bill created successfully: ${savedBill.billNumber} by ${req.user.email}`, 'info');
+//     res.status(201).json(savedBill);
+//   } catch (error) {
+//     log(`Error creating bill: ${error.message} - Stack: ${error.stack}`, 'error');
+//     if (error.code === 11000 || error.message.includes('duplicate key')) {
+//       return res.status(400).json({ message: `Bill number '${billNumber}' already exists.` });
+//     }
+//     if (error.name === 'ValidationError') {
+//       return res.status(400).json({ message: error.message });
+//     }
+//     res.status(500).json({ message: 'Server error while creating bill.' });
+//   }
+// };
+
+// const createBill = async (req, res) => {
+//   let {
+//     billNumber,
+//     billDate,
+//     companyId,
+//     consigneeId,
+//     isConsigneeDifferent = false,
+//     challanId,
+//     challanNumber,
+//     items,
+//     rate,
+//     discountPercentage = 0,
+//     taxType,
+//     overrideCgstPercentage,
+//     overrideSgstPercentage,
+//     overrideIgstPercentage,
+//     overrideJobCgstPercentage,
+//     overrideJobSgstPercentage,
+//     status,
+//     amountInWords,
+//     eWayBillNumber = '',
+//     paymentTermsDays = 30,
+//     financialYear
+//   } = req.body;
+
+//   if (!companyId || (!challanId && (!items || items.length === 0)) || !taxType) {
+//     return res.status(400).json({
+//       message: 'Missing required fields: companyId, items (unless challanId is provided), taxType.'
+//     });
+//   }
+
+//   if (!['CGST_SGST', 'IGST', 'JOBCGST_JOBSGST'].includes(taxType)) {
+//     return res.status(400).json({ message: 'Invalid tax type' });
+//   }
+
+//   try {
+//     const company = await Company.findById(companyId);
+//     if (!company) {
+//       return res.status(404).json({ message: 'Company not found.' });
+//     }
+
+//     // ✅ FINANCIAL YEAR LOGIC
+//     const resolvedDate = billDate ? new Date(billDate) : new Date();
+//     const resolvedFY = financialYear || getFinancialYear(resolvedDate);
+
+//     // ✅ AUTO BILL NUMBER
+//     if (!billNumber) {
+//       billNumber = await generateBillNumber(resolvedFY);
+//     } else {
+//       const expectedPrefix = `${resolvedFY}/`;
+//       if (!billNumber.startsWith(expectedPrefix)) {
+//         return res.status(400).json({
+//           message: `Bill number must follow format "${expectedPrefix}XX"`
+//         });
+//       }
+//     }
+
+//     // ===============================
+//     // EXISTING LOGIC (UNCHANGED)
+//     // ===============================
+//     let challan = null;
+//     let finalItems = items || [];
+
+//     if (challanId) {
+//       challan = await Challan.findById(challanId);
+//       if (!challan) return res.status(404).json({ message: 'Challan not found.' });
+
+//       if (challan.isUsed) {
+//         return res.status(400).json({
+//           message: `Challan ${challan.challanNumber} already used`
+//         });
+//       }
+
+//       const settings = await Settings.getSettings();
+//       const itemConfig = settings.itemConfigurations.find(
+//         item => item.description === challan.descriptionOfGoods
+//       );
+
+//       const itemRate = rate || itemConfig?.defaultRate || 0;
+
+//       finalItems = [{
+//         description: challan.descriptionOfGoods,
+//         hsnSacCode: itemConfig?.hsnSacCode || '',
+//         quantity: challan.totalNetWeight,
+//         rate: itemRate,
+//         amount: Math.round(challan.totalNetWeight * itemRate),
+//       }];
+//     }
+
+//     const settings = await Settings.getSettings();
+
+//     const calculated = calculateBillTotals(
+//       finalItems,
+//       discountPercentage,
+//       taxType,
+//       overrideCgstPercentage ?? settings.cgstPercentage,
+//       overrideSgstPercentage ?? settings.sgstPercentage,
+//       overrideIgstPercentage ?? settings.igstPercentage,
+//       overrideJobCgstPercentage ?? settings.jobCgstPercentage,
+//       overrideJobSgstPercentage ?? settings.jobSgstPercentage
+//     );
+
+//     const newBill = new Bill({
+//       billNumber,
+//       financialYear: resolvedFY, // ✅ NEW
+//       billDate: resolvedDate,
+//       challan: challanId || null,
+//       challanNumber: challan?.challanNumber || '',
+//       company: companyId,
+
+//       items: calculated.items,
+//       subTotalAmount: calculated.subTotalAmount,
+//       discountPercentage,
+//       discountAmount: calculated.discountAmount,
+//       amountAfterDiscount: calculated.amountAfterDiscount,
+//       taxType,
+
+//       cgstAmount: calculated.cgstAmount,
+//       sgstAmount: calculated.sgstAmount,
+//       igstAmount: calculated.igstAmount,
+//       jobCgstAmount: calculated.jobCgstAmount,
+//       jobSgstAmount: calculated.jobSgstAmount,
+
+//       totalTaxAmount: calculated.totalTaxAmount,
+//       roundOffAmount: calculated.roundOffAmount,
+//       totalAmount: calculated.totalAmount,
+
+//       amountInWords,
+//       eWayBillNumber,
+//       paymentTermsDays,
+//       status: status || 'Pending',
+//       createdBy: req.user._id,
+//     });
+
+//     const savedBill = await newBill.save();
+
+//     if (challanId) {
+//       await Challan.findByIdAndUpdate(challanId, {
+//         isUsed: true,
+//         bill: savedBill._id,
+//       });
+//     }
+
+//     res.status(201).json(savedBill);
+
+//   } catch (error) {
+//     if (error.code === 11000) {
+//       return res.status(400).json({
+//         message: `Bill number '${billNumber}' already exists.`
+//       });
+//     }
+//     res.status(500).json({ message: 'Server error while creating bill.' });
+//   }
+// };
 
 const createBill = async (req, res) => {
   let {
     billNumber,
     billDate,
     companyId,
-    consigneeId,
-    isConsigneeDifferent,
     challanId,
     challanIds,
     items,
@@ -2508,8 +3613,6 @@ const createBill = async (req, res) => {
     eWayBillNumber,
     status,
     amountInWords,
-    totalBoxes,
-    totalCops,
   } = req.body;
 
   if (!companyId || (!challanId && (!challanIds || challanIds.length === 0) && (!items || items.length === 0))) {
@@ -2521,19 +3624,7 @@ const createBill = async (req, res) => {
     const resolvedFY = financialYear || getFinancialYear(resolvedDate);
 
     if (!billNumber) {
-      billNumber = await generateBillNumber(resolvedFY, req.organizationId);
-    }
-
-    // ✅ Duplicate validation
-    const existingBill = await Bill.findOne({
-      billNumber,
-      organizationId: req.organizationId,
-    });
-
-    if (existingBill) {
-      return res.status(400).json({
-        message: `Bill number '${billNumber}' already exists.`,
-      });
+      billNumber = await generateBillNumber(resolvedFY);
     }
 
     let finalItems = items || [];
@@ -2557,7 +3648,7 @@ const createBill = async (req, res) => {
         }
       }
 
-      const settings = await Settings.getSettings(req.organizationId);
+      const settings = await Settings.getSettings();
 
       const itemMap = new Map();
 
@@ -2568,7 +3659,7 @@ const createBill = async (req, res) => {
 
         const frontendItem = Array.isArray(items) ? items.find(it => it.description === ch.descriptionOfGoods) : null;
         const itemRate = frontendItem?.rate || rate || itemConfig?.defaultRate || 0;
-        const itemQty = ch.totalNetWeight;
+        const itemQty = frontendItem?.quantity || ch.totalNetWeight;
 
         if (itemMap.has(ch.descriptionOfGoods)) {
           const existing = itemMap.get(ch.descriptionOfGoods);
@@ -2608,7 +3699,7 @@ const createBill = async (req, res) => {
         return res.status(400).json({ message: `Challan ${challan.challanNumber} already used` });
       }
 
-      const settings = await Settings.getSettings(req.organizationId);
+      const settings = await Settings.getSettings();
 
       const itemConfig = settings.itemConfigurations.find(
         i => i.description === challan.descriptionOfGoods
@@ -2616,7 +3707,7 @@ const createBill = async (req, res) => {
 
       const frontendItem = Array.isArray(items) ? items.find(it => it.description === challan.descriptionOfGoods) : null;
       const itemRate = frontendItem?.rate || rate || itemConfig?.defaultRate || 0;
-      const itemQty = challan.totalNetWeight;
+      const itemQty = frontendItem?.quantity || challan.totalNetWeight;
 
       finalItems = [{
         description: challan.descriptionOfGoods,
@@ -2637,40 +3728,14 @@ const createBill = async (req, res) => {
       0, 0, 0, 0, 0
     );
 
-    let consigneeDetailsSnapshot = null;
-    if (isConsigneeDifferent && consigneeId) {
-      const consignee = await Company.findById(consigneeId);
-      if (!consignee) {
-        return res.status(404).json({ message: 'Consignee company not found.' });
-      }
-
-      const consigneeStateCode = consignee.gstNumber && consignee.gstNumber.length >= 2 ?
-        consignee.gstNumber.substring(0, 2) : '';
-
-      consigneeDetailsSnapshot = {
-        name: consignee.name,
-        address: consignee.address,
-        gstNumber: consignee.gstNumber,
-        stateCode: consigneeStateCode,
-      };
-    }
-
-    const resolvedChallanNumber = challanNumbers.join(', ') || challan?.challanNumber || req.body.challanNumber || '';
-
     const newBill = new Bill({
-      organizationId: req.organizationId,
       billNumber,
       financialYear: resolvedFY,
       billDate: resolvedDate,
       company: companyId,
-      isConsigneeDifferent: !!(isConsigneeDifferent && consigneeId),
-      consignee: (isConsigneeDifferent && consigneeId) ? consigneeId : null,
-      consigneeDetailsSnapshot,
       challan: challanId || null,
       challans: challansList.length > 0 ? challansList : undefined,
-      challanNumber: resolvedChallanNumber,
-      totalBoxes: totalBoxes || 0,
-      totalCops: totalCops || 0,
+      challanNumber: challanNumbers.join(', ') || challan?.challanNumber || '',
       items: calculated.items,
       subTotalAmount: calculated.subTotalAmount,
       discountPercentage,
@@ -2706,16 +3771,7 @@ const createBill = async (req, res) => {
     res.status(201).json(savedBill);
 
   } catch (error) {
-    console.error('Bill creation error:', error);
-    
-    if (error.code === 11000) {
-      return res.status(400).json({ 
-        message: 'Duplicate bill number error. This bill number already exists in this organization.',
-        error: error.message 
-      });
-    }
-    
-    res.status(500).json({ message: 'Error creating bill', error: error.message });
+    res.status(500).json({ message: 'Error creating bill' });
   }
 };
 
@@ -2745,9 +3801,7 @@ const updateBill = async (req, res) => {
     paymentRecords,
     rate,
     eWayBillNumber,
-    paymentTermsDays,
-    totalBoxes,
-    totalCops
+    paymentTermsDays
   } = req.body;
 
   try {
@@ -2782,12 +3836,9 @@ const updateBill = async (req, res) => {
     let needsRecalculation = false;
 
     if (billNumber !== undefined && bill.billNumber !== billNumber) {
-      const existingBillWithNewNumber = await Bill.findOne({ 
-        billNumber,
-        organizationId: req.organizationId 
-      });
+      const existingBillWithNewNumber = await Bill.findOne({ billNumber });
       if (existingBillWithNewNumber && existingBillWithNewNumber._id.toString() !== billId) {
-        return res.status(400).json({ message: `Bill number '${billNumber}' already exists in this organization.` });
+        return res.status(400).json({ message: `Bill number '${billNumber}' already exists.` });
       }
       bill.billNumber = billNumber;
     }
@@ -2851,14 +3902,14 @@ const updateBill = async (req, res) => {
         }
       }
 
-      const settings = await Settings.getSettings(req.organizationId);
+      const settings = await Settings.getSettings();
       const itemMap = new Map();
 
       for (const ch of challans) {
         const itemConfig = settings.itemConfigurations.find(item => item.description === ch.descriptionOfGoods);
         const frontendItem = Array.isArray(items) ? items.find(it => it.description === ch.descriptionOfGoods) : null;
         const itemRate = frontendItem?.rate || parseFloat(rate) || itemConfig?.defaultRate || 0;
-        const itemQty = ch.totalNetWeight;
+        const itemQty = frontendItem?.quantity || ch.totalNetWeight;
 
         if (itemMap.has(ch.descriptionOfGoods)) {
           const existing = itemMap.get(ch.descriptionOfGoods);
@@ -2882,8 +3933,6 @@ const updateBill = async (req, res) => {
       bill.challan = null;
       bill.challans = challanIds;
       bill.challanNumber = challans.map(c => c.challanNumber).join(', ');
-      bill.totalBoxes = 0;
-      bill.totalCops = 0;
       bill.items = billItems;
 
       await Challan.updateMany(
@@ -2907,7 +3956,7 @@ const updateBill = async (req, res) => {
         bill.challan = challanId;
         bill.challans = [];
         bill.challanNumber = challan.challanNumber;
-        const settings = await Settings.getSettings(req.organizationId);
+        const settings = await Settings.getSettings();
         const itemConfig = settings.itemConfigurations.find(item => item.description === challan.descriptionOfGoods);
         const itemRate = parseFloat(rate) || itemConfig?.defaultRate || 0;
         bill.items = [{
@@ -2928,8 +3977,6 @@ const updateBill = async (req, res) => {
         bill.challan = null;
         bill.challans = [];
         bill.challanNumber = challanNumber || '';
-        if (totalBoxes !== undefined) bill.totalBoxes = totalBoxes;
-        if (totalCops !== undefined) bill.totalCops = totalCops;
         if (items !== undefined) {
           bill.items = items;
           needsRecalculation = true;
@@ -2957,7 +4004,7 @@ const updateBill = async (req, res) => {
       overrideJobCgstPercentage !== undefined ||
       overrideJobSgstPercentage !== undefined
     ) {
-      const settings = await Settings.getSettings(req.organizationId);
+      const settings = await Settings.getSettings();
       const currentItems = bill.items;
       const currentDiscountPercentage = discountPercentage !== undefined ? parseFloat(discountPercentage) : bill.discountPercentage;
       const currentTaxType = taxType !== undefined ? taxType : bill.taxType;
@@ -3086,7 +4133,7 @@ const updateBill = async (req, res) => {
 const getBills = async (req, res) => {
   const { companyId, financialYear, startDate, endDate, status } = req.query;
 
-  const query = { organizationId: req.organizationId };
+  const query = {};
 
   if (companyId) query.company = companyId;
   if (financialYear) query.financialYear = financialYear;
@@ -3107,28 +4154,7 @@ const getBills = async (req, res) => {
       .populate('company', 'name')
       .sort({ billDate: -1 });
 
-    // Re-derive status from the actual payment records at read time so that
-    // a stale/inconsistent stored status does not show the wrong value
-    // (e.g. "Paid" when only a partial amount was received).
-    const normalizedBills = bills.map((bill) => {
-      const doc = bill.toObject();
-      doc.totalPaidAmount = (bill.paymentRecords || []).reduce(
-        (sum, r) => sum + (r.amountPaid || 0),
-        0
-      );
-      if (doc.status !== 'Cancelled') {
-        if (doc.totalPaidAmount >= doc.totalAmount) {
-          doc.status = 'Paid';
-        } else if (doc.totalPaidAmount > 0) {
-          doc.status = 'Partially Paid';
-        } else {
-          doc.status = 'Pending';
-        }
-      }
-      return doc;
-    });
-
-    res.json(normalizedBills);
+    res.json(bills);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching bills' });
   }
@@ -3314,522 +4340,13 @@ const generateBillExcel = async (req, res) => {
 // @desc    Generate PDF for a bill
 // @route   GET /api/bills/:id/pdf
 // @access  Private/Admin
-// const generateBillPdf = async (req, res) => {
-//   const billId = req.params.id;
-//   try {
-//     const org = await getOrgDetails(req.organizationId);
-//     const bill = await Bill.findById(billId)
-//       .populate('company')
-//       .populate('consignee', 'name address gstNumber')
-//       .populate('challan', 'challanNumber descriptionOfGoods totalNetWeight totalCops broker')
-//       .populate('challans', 'challanNumber descriptionOfGoods totalNetWeight totalCops broker boxDetails');
-//     if (!bill) {
-//       log(`PDF generation failed: Bill not found - ID: ${billId}`, 'warn');
-//       return res.status(404).json({ message: 'Bill not found.' });
-//     }
-
-//     const pdfDoc = await PDFDocument.create();
-//     let page = pdfDoc.addPage([595, 842]);
-//     const { width, height } = page.getSize();
-//     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-//     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-//     let y = height - 40;
-//     const lineSpacing = 18;
-//     const smallLineSpacing = 12;
-//     const itemLineSpacing = 16;
-//     const leftMargin = 40;
-//     const rightMargin = width - 40;
-//     const contentWidth = rightMargin - leftMargin;
-
-//     const drawTextAndMeasureHeight = (textToDraw, xPos, currentY, options = {}) => {
-//       const textToProcess = String(textToDraw ?? '').replace(/₹/g, 'INR ');
-//       const FONT_TO_USE = options.font || font;
-//       const SIZE = options.size || 10;
-//       const COLOR = options.color || rgb(0, 0, 0);
-//       const LINE_HEIGHT = options.lineHeight || SIZE * 1.3;
-//       const MAX_WIDTH = options.maxWidth;
-//       const SPACING_AFTER = options.spacingAfter !== undefined ? options.spacingAfter : 3;
-//       const ALIGN = options.align || 'left';
-
-//       let actualXPos = xPos;
-//       if (ALIGN === 'center' && MAX_WIDTH) {
-//         const textWidth = FONT_TO_USE.widthOfTextAtSize(textToProcess, SIZE);
-//         actualXPos = xPos + (MAX_WIDTH - textWidth) / 2;
-//       } else if (ALIGN === 'center') {
-//         const textWidth = FONT_TO_USE.widthOfTextAtSize(textToProcess, SIZE);
-//         actualXPos = leftMargin + (contentWidth - textWidth) / 2;
-//       }
-
-//       page.drawText(textToProcess, {
-//         x: actualXPos,
-//         y: currentY,
-//         font: FONT_TO_USE,
-//         size: SIZE,
-//         color: COLOR,
-//         lineHeight: LINE_HEIGHT,
-//         maxWidth: MAX_WIDTH,
-//         wordBreaks: [' ', '-', '/'],
-//       });
-
-//       let numLines = 1;
-//       if (MAX_WIDTH && FONT_TO_USE.widthOfTextAtSize(textToProcess.replace(/\n/g, ' '), SIZE) > MAX_WIDTH) {
-//         const segments = textToProcess.split('\n');
-//         numLines = 0;
-//         segments.forEach(segment => {
-//           if (segment.trim() === '') {
-//             numLines++;
-//             return;
-//           }
-//           let currentLineForEstimation = '';
-//           let linesForSegment = 1;
-//           // Split on the same characters passed to wordBreaks below (space, hyphen, slash),
-//           // keeping the break character attached to the preceding chunk, so this estimate
-//           // matches where pdf-lib is actually allowed to wrap the line.
-//           const words = segment.match(/[^ \-/]*[ \-/]?/g)?.filter(Boolean) || [segment];
-//           for (const word of words) {
-//             const testLineWithWord = currentLineForEstimation + word;
-//             if (FONT_TO_USE.widthOfTextAtSize(testLineWithWord, SIZE) > MAX_WIDTH) {
-//               linesForSegment++;
-//               currentLineForEstimation = word;
-//             } else {
-//               currentLineForEstimation = testLineWithWord;
-//             }
-//           }
-//           numLines += linesForSegment;
-//         });
-//         if (textToProcess.endsWith('\n') && segments[segments.length - 1].trim() !== '') numLines++;
-//         if (numLines === 0 && textToProcess.trim() !== '') numLines = 1;
-//       } else {
-//         numLines = textToProcess.split('\n').length;
-//         if (numLines === 0 && textToProcess.trim() !== '') numLines = 1;
-//       }
-
-//       const textHeight = textToProcess.trim() === '' ? 0 : numLines * LINE_HEIGHT;
-//       return textHeight + SPACING_AFTER;
-//     };
-
-//     let currentY = y;
-
-//     const topHeaderTextY = currentY;
-//     const shreeGaneshText = 'SHREE GANESHAY NAMAH';
-//     const shreeGaneshFontSize = 10;
-//     const shreeGaneshOptions = { font: boldFont, size: shreeGaneshFontSize, align: 'center', color: rgb(0.2, 0.2, 0.2), spacingAfter: 0 };
-//     const shreeGaneshHeight = drawTextAndMeasureHeight(shreeGaneshText, leftMargin, topHeaderTextY, shreeGaneshOptions);
-
-//     const taxInvoiceText = 'TAX INVOICE';
-//     const taxInvoiceFontSize = 14;
-//     const taxInvoiceWidth = boldFont.widthOfTextAtSize(taxInvoiceText, taxInvoiceFontSize);
-//     const taxInvoiceOptions = { font: boldFont, size: taxInvoiceFontSize, color: rgb(0.2, 0.2, 0.2), spacingAfter: 0 };
-//     const taxInvoiceHeight = drawTextAndMeasureHeight(taxInvoiceText, rightMargin - taxInvoiceWidth, topHeaderTextY, taxInvoiceOptions);
-
-//     currentY -= Math.max(shreeGaneshHeight, taxInvoiceHeight) + 18;
-
-//     const companyNameText = org.name;
-//     const companyNameFontSize = 25;
-//     currentY -= drawTextAndMeasureHeight(companyNameText, leftMargin, currentY, { font: boldFont, size: companyNameFontSize, align: 'center', color: rgb(0.1, 0.3, 0.5) });
-
-//     const addressText = org.address;
-//     const addressFontSize = 9;
-//     currentY -= drawTextAndMeasureHeight(addressText, leftMargin, currentY + 14, { size: addressFontSize, align: 'center', maxWidth: contentWidth, spacingAfter: 4 });
-
-//     const companyGSTIN = org.gstin;
-//     const companyStateCode = companyGSTIN.substring(0, 2);
-//     const gstinWithStateText = `GSTIN: ${companyGSTIN}     STATE CODE: ${companyStateCode}`;
-//     const gstinFontSize = 10;
-//     currentY -= drawTextAndMeasureHeight(gstinWithStateText, leftMargin, currentY + 14, { size: gstinFontSize, align: 'center', spacingAfter: 15 });
-
-//     y = currentY;
-
-//     const buyerName = bill.companyDetailsSnapshot?.name || bill.company?.name || 'N/A';
-//     const buyerAddress = bill.companyDetailsSnapshot?.address || bill.company?.address || 'N/A';
-//     const buyerGstin = bill.companyDetailsSnapshot?.gstNumber || bill.company?.gstNumber || 'N/A';
-//     const buyerStateCode = buyerGstin !== 'N/A' && buyerGstin.length >= 2 ? buyerGstin.substring(0, 2) : 'N/A';
-//     const broker = bill.challan ? bill.challan.broker || 'direct' : 'direct';
-
-//     let yLeft = y;
-//     let yRight = y;
-
-//     const detailsMaxWidth = contentWidth / 2 - 20;
-//     const billDetailsColumnWidth = 180;
-//     const billDetailsX = rightMargin - billDetailsColumnWidth;
-//     const billDetailsMaxWidth = billDetailsColumnWidth - 10;
-
-//     const hasConsignee = bill.isConsigneeDifferent && bill.consigneeDetailsSnapshot;
-
-//     // When a consignee is present, use the full width available up to the
-//     // bill-details box (instead of only half the page) so neither column
-//     // has to wrap as aggressively.
-//     const consigneeSectionWidth = (billDetailsX - 15) - leftMargin;
-
-//     // Draw background for buyer/consignee section
-//     const buyerSectionHeight = hasConsignee ? 150 : 100;
-//     const buyerSectionWidth = hasConsignee ? consigneeSectionWidth : (detailsMaxWidth + 20);
-//     page.drawRectangle({
-//       x: leftMargin,
-//       y: yLeft - (hasConsignee ? 140 : 84),
-//       width: buyerSectionWidth,
-//       height: buyerSectionHeight,
-//       color: rgb(0.95, 0.95, 0.95),
-//       opacity: 0.5,
-//     });
-
-//     // Draw background for bill details
-//     page.drawRectangle({
-//       x: billDetailsX - 5,
-//       y: yRight - 64,
-//       width: billDetailsColumnWidth,
-//       height: 80,
-//       color: rgb(0.95, 0.95, 0.95),
-//       opacity: 0.5,
-//     });
-
-//     if (hasConsignee) {
-//       // Buyer and Consignee printed side by side, in the SAME uniform style
-//       // (just sized a touch smaller than the single-buyer block) so both
-//       // columns look consistent with each other.
-//       const consigneeName = bill.consigneeDetailsSnapshot.name || 'N/A';
-//       const consigneeAddress = bill.consigneeDetailsSnapshot.address || 'N/A';
-//       const consigneeGstin = bill.consigneeDetailsSnapshot.gstNumber || 'N/A';
-//       const consigneeStateCode = bill.consigneeDetailsSnapshot.stateCode || 'N/A';
-
-//       const colGap = 16;
-//       const subColWidth = (consigneeSectionWidth - 10 - colGap) / 2;
-//       const buyerColX = leftMargin + 5;
-//       const consigneeColX = buyerColX + subColWidth + colGap;
-//       const sectionTopY = yLeft;
-
-//       let yBuyer = yLeft;
-//       let yConsignee = yLeft;
-
-//       const labelOptions = { font: boldFont, size: 9, spacingAfter: 3 };
-//       const nameOptions = { font: boldFont, size: 9, spacingAfter: 3 };
-//       const addressOptions = { size: 8, spacingAfter: 3 };
-//       const gstinOptions = { font: boldFont, size: 8, spacingAfter: 3 };
-
-//       // Buyer (left sub-column)
-//       yBuyer -= drawTextAndMeasureHeight(`Buyer:`, buyerColX, yBuyer, labelOptions);
-//       yBuyer -= drawTextAndMeasureHeight(buyerName, buyerColX, yBuyer, { ...nameOptions, maxWidth: subColWidth });
-//       yBuyer -= drawTextAndMeasureHeight(buyerAddress, buyerColX, yBuyer, { ...addressOptions, maxWidth: subColWidth });
-//       yBuyer -= drawTextAndMeasureHeight(`GSTIN: ${buyerGstin}  STATE CODE: ${buyerStateCode}`, buyerColX, yBuyer, { ...gstinOptions, maxWidth: subColWidth });
-
-//       // Consignee (right sub-column) — same sizes as Buyer
-//       yConsignee -= drawTextAndMeasureHeight(`Consignee:`, consigneeColX, yConsignee, labelOptions);
-//       yConsignee -= drawTextAndMeasureHeight(consigneeName, consigneeColX, yConsignee, { ...nameOptions, maxWidth: subColWidth });
-//       yConsignee -= drawTextAndMeasureHeight(consigneeAddress, consigneeColX, yConsignee, { ...addressOptions, maxWidth: subColWidth });
-//       yConsignee -= drawTextAndMeasureHeight(`GSTIN: ${consigneeGstin}  STATE CODE: ${consigneeStateCode}`, consigneeColX, yConsignee, { ...gstinOptions, maxWidth: subColWidth });
-
-//       // Divider line between the two sub-columns
-//       page.drawLine({
-//         start: { x: consigneeColX - colGap / 2, y: sectionTopY + 6 },
-//         end: { x: consigneeColX - colGap / 2, y: Math.min(yBuyer, yConsignee) },
-//         thickness: 0.5,
-//         color: rgb(0.75, 0.75, 0.75)
-//       });
-
-//       yLeft = Math.min(yBuyer, yConsignee);
-//     } else {
-//       // Single buyer block (full width) — unchanged when there's no separate consignee
-//       yLeft -= drawTextAndMeasureHeight(`Buyer:`, leftMargin + 5, yLeft, { font: boldFont, size: 11, spacingAfter: 4 });
-//       yLeft -= drawTextAndMeasureHeight(buyerName, leftMargin + 5, yLeft, { font: boldFont, size: 10, spacingAfter: 4, maxWidth: detailsMaxWidth });
-//       yLeft -= drawTextAndMeasureHeight(buyerAddress, leftMargin + 5, yLeft, { size: 9, spacingAfter: 4, maxWidth: detailsMaxWidth });
-//       yLeft -= drawTextAndMeasureHeight(`GSTIN: ${buyerGstin}     STATE CODE: ${buyerStateCode}`, leftMargin + 5, yLeft, { font: boldFont, size: 9, spacingAfter: 4, maxWidth: detailsMaxWidth });
-//     }
-
-//     // Draw bill details (right side)
-//     yRight -= drawTextAndMeasureHeight(`Date : ${new Date(bill.billDate).toLocaleDateString('en-IN')}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
-//     yRight -= drawTextAndMeasureHeight(`Invoice No : ${bill.billNumber || 'N/A'}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
-//     const displayChallanNumber = (bill.challanNumber || bill.challan?.challanNumber || '')
-//       .split(',')
-//       .map(num => num.trim().split('/').pop())
-//       .join(', ');
-
-//     yRight -= drawTextAndMeasureHeight(
-//       `Challan No : ${displayChallanNumber}`,
-//       billDetailsX,
-//       yRight,
-//       {
-//         size: 10,
-//         spacingAfter: 4,
-//         maxWidth: billDetailsMaxWidth
-//       }
-//     );
-//     // Print E-way bill number and Payment Terms after challan
-//     if (bill.eWayBillNumber) {
-//       yRight -= drawTextAndMeasureHeight(`E-way Bill No : ${bill.eWayBillNumber}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
-//     }
-//     if (bill.paymentTermsDays) {
-//       yRight -= drawTextAndMeasureHeight(`Mode/Terms of Payment : ${bill.paymentTermsDays} days`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
-//     }
-
-//     y = Math.min(yLeft, yRight) - lineSpacing;
-
-//     // Continue with the rest of the PDF generation (items table, totals, etc.)
-//     page.drawRectangle({
-//       x: leftMargin,
-//       y: y - 22,
-//       width: contentWidth,
-//       height: 20,
-//       color: rgb(0.1, 0.3, 0.5),
-//       opacity: 0.1,
-//     });
-//     page.drawLine({ start: { x: leftMargin, y: y }, end: { x: rightMargin, y: y }, thickness: 1, color: rgb(0.2, 0.2, 0.2) });
-//     y -= smallLineSpacing;
-
-//     const colPositions = {
-//       srNo: leftMargin + 10,
-//       desc: leftMargin + 50,
-//       hsn: leftMargin + 260,
-//       qty: leftMargin + 340,
-//       rate: leftMargin + 410,
-//       amount: rightMargin - 80,
-//     };
-//     const headerOptions = { font: boldFont, size: 10, spacingAfter: 0, color: rgb(0.1, 0.1, 0.1) };
-//     drawTextAndMeasureHeight('Sr No.', colPositions.srNo, y, headerOptions);
-//     drawTextAndMeasureHeight('Description of Goods', colPositions.desc, y, { ...headerOptions, maxWidth: colPositions.hsn - colPositions.desc - 15 });
-//     drawTextAndMeasureHeight('HSN/SAC', colPositions.hsn, y, headerOptions);
-//     drawTextAndMeasureHeight('Quantity', colPositions.qty, y, headerOptions);
-//     drawTextAndMeasureHeight('Rate/Kgs', colPositions.rate, y, headerOptions);
-//     const amountHeaderText = 'Amount';
-//     const amountHeaderWidth = boldFont.widthOfTextAtSize(amountHeaderText, 10);
-//     drawTextAndMeasureHeight(amountHeaderText, rightMargin - amountHeaderWidth - 10, y, headerOptions);
-
-//     y -= smallLineSpacing;
-//     page.drawLine({ start: { x: leftMargin, y: y }, end: { x: rightMargin, y: y }, thickness: 1, color: rgb(0.2, 0.2, 0.2) });
-//     y -= itemLineSpacing;
-
-//     const pageBreakThreshold = 100;
-//     bill.items.forEach((item, index) => {
-//       if (y < pageBreakThreshold) {
-//         page = pdfDoc.addPage([595, 842]);
-//         y = height - 40;
-//       }
-
-//       const itemRowOptions = { size: 9, spacingAfter: 0 };
-//       let maxHeightThisRow = 0;
-
-//       if (index % 2 === 0) {
-//         page.drawRectangle({
-//           x: leftMargin,
-//           y: y - 5,
-//           width: contentWidth,
-//           height: 16,
-//           color: rgb(0.98, 0.98, 0.98),
-//           opacity: 0.5,
-//         });
-//       }
-
-//       maxHeightThisRow = Math.max(maxHeightThisRow, drawTextAndMeasureHeight(String(index + 1), colPositions.srNo, y, itemRowOptions));
-//       maxHeightThisRow = Math.max(maxHeightThisRow, drawTextAndMeasureHeight(item.description, colPositions.desc, y, { ...itemRowOptions, maxWidth: colPositions.hsn - colPositions.desc - 15 }));
-//       maxHeightThisRow = Math.max(maxHeightThisRow, drawTextAndMeasureHeight(item.hsnSacCode, colPositions.hsn, y, { ...itemRowOptions, maxWidth: colPositions.qty - colPositions.hsn - 10 }));
-//       maxHeightThisRow = Math.max(maxHeightThisRow, drawTextAndMeasureHeight(String(item.quantity.toFixed(2)), colPositions.qty, y, { ...itemRowOptions, maxWidth: colPositions.rate - colPositions.qty - 10 }));
-//       maxHeightThisRow = Math.max(maxHeightThisRow, drawTextAndMeasureHeight(String(Math.round(item.rate || 0)), colPositions.rate, y, { ...itemRowOptions, maxWidth: colPositions.amount - colPositions.rate - 10 }));
-//       const amountStr = String(Math.round(item.amount || 0));
-//       const amountCellWidth = font.widthOfTextAtSize(amountStr, itemRowOptions.size);
-//       maxHeightThisRow = Math.max(maxHeightThisRow, drawTextAndMeasureHeight(amountStr, rightMargin - amountCellWidth - 10, y, itemRowOptions));
-
-//       y -= maxHeightThisRow + itemLineSpacing / 2;
-//     });
-
-//     const minItemRows = 7;
-//     if (bill.items.length < minItemRows) {
-//       for (let i = bill.items.length; i < minItemRows; i++) {
-//         y -= itemLineSpacing;
-//       }
-//     }
-
-//     // Get total boxes and cops from challan(s)
-//     let totalBoxes = 0;
-//     let totalCops = 0;
-
-//     // if (bill.challan) {
-//     //   totalBoxes = bill.challan.boxDetails ? bill.challan.boxDetails.length : 0;
-//     //   totalCops = bill.challan.totalCops || 0;
-//     // }
-//     // if (bill.challans && bill.challans.length > 0) {
-//     //   bill.challans.forEach(challan => {
-//     //     totalBoxes += challan.boxDetails ? challan.boxDetails.length : 0;
-//     //     totalCops += challan.totalCops || 0;
-//     //   });
-//     // }
-
-
-//     if (bill.challans && bill.challans.length > 0) {
-//       // Multiple challans — use this block only
-//       bill.challans.forEach(challan => {
-//         totalBoxes += challan.boxDetails ? challan.boxDetails.length : 0;
-//         totalCops += challan.totalCops || 0;
-//       });
-//     } else if (bill.challan) {
-//       // Single challan fallback
-//       totalBoxes = bill.challan.boxDetails ? bill.challan.boxDetails.length : 0;
-//       totalCops = bill.challan.totalCops || 0;
-//     }
-
-//     // Print boxes summary in Description column area
-//     if (totalBoxes > 0 ) {
-//       y -= drawTextAndMeasureHeight(`Boxes: ${totalBoxes}  |  ${org.terminology?.copsLabel || 'Cops'}: ${totalCops}`, colPositions.desc, y, { font: boldFont, size: 9, spacingAfter: 0, color: rgb(0.2, 0.2, 0.2) });
-//     }
-
-//     page.drawLine({ start: { x: leftMargin, y: y }, end: { x: rightMargin, y: y }, thickness: 1.5, color: rgb(0.2, 0.2, 0.2) });
-//     y -= smallLineSpacing + 1;
-
-//     const totalsLabelX = rightMargin - 230;
-//     const totalsValueX = rightMargin - 100;
-
-//     const drawTotalLine = (label, valueStr, isBold = false) => {
-//       const commonOpt = { size: 10, font: isBold ? boldFont : font, spacingAfter: 2 };
-//       const labelMaxWidth = totalsValueX - totalsLabelX - 15;
-//       const valueMaxWidth = rightMargin - totalsValueX - 10;
-
-//       const hLabel = drawTextAndMeasureHeight(label, totalsLabelX, y, { ...commonOpt, maxWidth: labelMaxWidth });
-//       const valWidth = (isBold ? boldFont : font).widthOfTextAtSize(valueStr, commonOpt.size);
-//       const valXPos = rightMargin - valWidth - 10;
-//       const hValue = drawTextAndMeasureHeight(valueStr, valXPos, y, { ...commonOpt, maxWidth: valueMaxWidth });
-
-//       y -= Math.max(hLabel, hValue) + smallLineSpacing - commonOpt.spacingAfter;
-//     };
-
-//     page.drawRectangle({
-//       x: totalsLabelX - 10,
-//       y: y - 114,
-//       width: rightMargin - totalsLabelX + 15,
-//       height: 124,
-//       color: rgb(0.95, 0.95, 0.95),
-//       opacity: 0.5,
-//     });
-
-//     drawTotalLine('Subtotal', String(Math.round(bill.subTotalAmount || 0)));
-//     if (bill.discountAmount > 0) {
-//       drawTotalLine(`Discount (${bill.discountPercentage}%):`, `- ${String(Math.round(bill.discountAmount || 0))}`);
-//     }
-//     drawTotalLine('Amount After Discount:', String(Math.round(bill.amountAfterDiscount || 0)), true);
-
-//     if (bill.taxType === 'CGST_SGST') {
-//       drawTotalLine(`SGST (${bill.sgstPercentage}%):`, `+ ${String(Math.round(bill.sgstAmount || 0))}`);
-//       drawTotalLine(`CGST (${bill.cgstPercentage}%):`, `+ ${String(Math.round(bill.cgstAmount || 0))}`);
-//     } else if (bill.taxType === 'IGST') {
-//       drawTotalLine(`IGST (${bill.igstPercentage}%):`, `+ ${String(Math.round(bill.igstAmount || 0))}`);
-//     } else if (bill.taxType === 'JOBCGST_JOBSGST') {
-//       drawTotalLine(`SGST (${bill.jobSgstPercentage}%):`, `+ ${String(Math.round(bill.jobSgstAmount || 0))}`);
-//       drawTotalLine(`CGST (${bill.jobCgstPercentage}%):`, `+ ${String(Math.round(bill.jobCgstAmount || 0))}`);
-//     }
-
-//     y -= 5;
-//     page.drawLine({ start: { x: totalsLabelX - 10, y: y + smallLineSpacing / 2 }, end: { x: rightMargin, y: y + smallLineSpacing / 2 }, thickness: 1, color: rgb(0.2, 0.2, 0.2) });
-//     y -= 3;
-
-//     drawTotalLine('Total Amount', String(Math.round(bill.totalAmount || 0)), true);
-
-//     const currentTotalAmountInWords = amountToWords(bill.totalAmount || 0);
-//     if (currentTotalAmountInWords && currentTotalAmountInWords !== 'Zero Rupees Only' && bill.totalAmount !== 0) {
-//       const amountInWordsText = `Amount in Words: ${currentTotalAmountInWords}`;
-//       y -= drawTextAndMeasureHeight(amountInWordsText, leftMargin, y, {
-//         font: boldFont,
-//         size: 10,
-//         spacingAfter: 8,
-//         maxWidth: contentWidth,
-//         color: rgb(0.1, 0.1, 0.1),
-//       });
-//     } else if (bill.totalAmount === 0) {
-//       const amountInWordsText = `Amount in Words: Zero Rupees Only`;
-//       y -= drawTextAndMeasureHeight(amountInWordsText, leftMargin, y, {
-//         font: boldFont,
-//         size: 10,
-//         spacingAfter: 8,
-//         maxWidth: contentWidth,
-//         color: rgb(0.1, 0.1, 0.1),
-//       });
-//     }
-//     y -= 2;
-
-//     page.drawLine({ start: { x: leftMargin, y: y }, end: { x: rightMargin, y: y }, thickness: 1, color: rgb(0.2, 0.2, 0.2) });
-//     y -= smallLineSpacing;
-
-//     let bankDetailsY = y;
-//     const bankDetailsMaxWidth = contentWidth * 0.5;
-//     bankDetailsY -= drawTextAndMeasureHeight('Bank Details:', leftMargin, bankDetailsY, { font: boldFont, size: 12, spacingAfter: 4 });
-//     bankDetailsY -= drawTextAndMeasureHeight(`Bank Name: ${org.bankName}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
-//     bankDetailsY -= drawTextAndMeasureHeight(`Account Name: ${org.accountName}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
-//     bankDetailsY -= drawTextAndMeasureHeight(`Account No.: ${org.accountNo}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
-//     bankDetailsY -= drawTextAndMeasureHeight(`IFSC Code: ${org.ifsc}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 10, maxWidth: bankDetailsMaxWidth });
-
-//     let declarationTitleY = bankDetailsY;
-//     const forCompanyText = `For ${org.name}`;
-//     const forCompanyFontSize = 11;
-//     const forCompanyOptions = { font: boldFont, size: forCompanyFontSize, spacingAfter: 3, align: 'right' };
-//     const forCompanyWidth = boldFont.widthOfTextAtSize(forCompanyText, forCompanyFontSize);
-
-//     const declarationTitleHeight = drawTextAndMeasureHeight('Declaration:', leftMargin, declarationTitleY, { font: boldFont, size: 12, spacingAfter: 4 });
-//     drawTextAndMeasureHeight(forCompanyText, rightMargin - forCompanyWidth, declarationTitleY, forCompanyOptions);
-//     bankDetailsY -= declarationTitleHeight;
-
-//     const declarationText = [
-//       '1. Interest @ 2% will be charged on bills if not paid within 20 days.',
-//       '2. All payments must be made by payee\'s A/C Cheque/Draft.',
-//       '3. No claims will be entertained unless notified in writing within three days from the date of this bill.',
-//       'Subject to Surat jurisdiction.',
-//     ];
-
-//     let lastDeclarationLineY = bankDetailsY;
-
-//     declarationText.forEach((line, index) => {
-//       const currentLineHeight = drawTextAndMeasureHeight(line, leftMargin, bankDetailsY, { size: 9, spacingAfter: 3, maxWidth: contentWidth * 0.6 });
-//       bankDetailsY -= currentLineHeight;
-//       if (index === declarationText.length - 1) {
-//         lastDeclarationLineY = bankDetailsY + currentLineHeight - 3;
-//       }
-//     });
-
-//     const authSignText = 'Authorised Signatory';
-//     const authSignFontSize = 9;
-//     const authSignOptions = { font: font, size: authSignFontSize, spacingAfter: 0, align: 'right' };
-//     const authSignWidth = font.widthOfTextAtSize(authSignText, authSignFontSize);
-//     drawTextAndMeasureHeight(authSignText, rightMargin - authSignWidth, lastDeclarationLineY, authSignOptions);
-
-//     const forCompanyHeight = boldFont.heightAtSize(forCompanyFontSize) + 3;
-//     const signatureSpaceY = declarationTitleY - forCompanyHeight - 30;
-//     y = Math.min(bankDetailsY, signatureSpaceY) - lineSpacing;
-
-//     const bottomMarginForContact = 30;
-//     y = bottomMarginForContact;
-//     page.drawRectangle({
-//       x: leftMargin,
-//       y: y - 8,
-//       width: contentWidth,
-//       height: 20,
-//       color: rgb(0.1, 0.3, 0.5),
-//       opacity: 0.1,
-//     });
-//     const contactText = `Contact: ${org.contactPerson} | Phone: ${org.phone} | Email: ${org.email}`;
-//     const contactTextWidth = font.widthOfTextAtSize(contactText, 9);
-//     drawTextAndMeasureHeight(contactText, leftMargin + (contentWidth - contactTextWidth) / 2, y, { size: 9, spacingAfter: 0, color: rgb(0.3, 0.3, 0.3) });
-
-//     const pdfBytes = await pdfDoc.save();
-//     const pdfFileName = `Bill-${bill.billNumber.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-
-//     log(`PDF generated for bill ${bill.billNumber}`, 'info');
-
-//     res.setHeader('Content-Type', 'application/pdf');
-//     res.setHeader('Content-Disposition', `attachment; filename="${pdfFileName}"`);
-//     res.send(Buffer.from(pdfBytes));
-//   } catch (error) {
-//     log(`Error generating PDF for bill ID ${billId}: ${error.message} - Stack: ${error.stack}`, 'error');
-//     if (!res.headersSent) {
-//       res.status(500).json({ message: 'Server error while generating PDF bill.' });
-//     }
-//   }
-// };
-
 const generateBillPdf = async (req, res) => {
   const billId = req.params.id;
   try {
-    const org = await getOrgDetails(req.organizationId);
     const bill = await Bill.findById(billId)
       .populate('company')
       .populate('consignee', 'name address gstNumber')
-      .populate('challan', 'challanNumber descriptionOfGoods totalNetWeight totalCops broker')
-      .populate('challans', 'challanNumber descriptionOfGoods totalNetWeight totalCops broker boxDetails');
+      .populate('challan', 'challanNumber descriptionOfGoods totalNetWeight totalCops broker');
     if (!bill) {
       log(`PDF generation failed: Bill not found - ID: ${billId}`, 'warn');
       return res.status(404).json({ message: 'Bill not found.' });
@@ -3841,22 +4358,6 @@ const generateBillPdf = async (req, res) => {
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    const sanitizeForWinAnsi = (text) => {
-      const greekToLatinMap = {
-        '\u0391':'A','\u0392':'B','\u0393':'G','\u0394':'D','\u0395':'E','\u0396':'Z','\u0397':'H','\u0398':'U',
-        '\u0399':'I','\u039A':'K','\u039B':'L','\u039C':'M','\u039D':'N','\u039E':'J','\u039F':'O','\u03A0':'P',
-        '\u03A1':'R','\u03A3':'S','\u03A4':'T','\u03A5':'Y','\u03A6':'F','\u03A7':'X','\u03A8':'C','\u03A9':'W',
-        '\u03AA':'I','\u03AB':'Y',
-        '\u03B1':'a','\u03B2':'b','\u03B3':'g','\u03B4':'d','\u03B5':'e','\u03B6':'z','\u03B7':'h','\u03B8':'u',
-        '\u03B9':'i','\u03BA':'k','\u03BB':'l','\u03BC':'m','\u03BD':'n','\u03BE':'j','\u03BF':'o','\u03C0':'p',
-        '\u03C1':'r','\u03C2':'s','\u03C3':'s','\u03C4':'t','\u03C5':'y','\u03C6':'f','\u03C7':'x','\u03C8':'c',
-        '\u03C9':'w','\u03CA':'i','\u03CB':'y',
-      };
-      return String(text ?? '')
-        .replace(/[\u0391-\u03C9]/g, (ch) => greekToLatinMap[ch] || '?')
-        .replace(/[^\x00-\xFF]/g, '?');
-    };
-
     let y = height - 40;
     const lineSpacing = 18;
     const smallLineSpacing = 12;
@@ -3865,50 +4366,8 @@ const generateBillPdf = async (req, res) => {
     const rightMargin = width - 40;
     const contentWidth = rightMargin - leftMargin;
 
-    const calculateTextHeight = (textToDraw, options = {}) => {
-      const textToProcess = sanitizeForWinAnsi(textToDraw);
-      const FONT_TO_USE = options.font || font;
-      const SIZE = options.size || 10;
-      const LINE_HEIGHT = options.lineHeight || SIZE * 1.3;
-      const MAX_WIDTH = options.maxWidth;
-      const SPACING_AFTER = options.spacingAfter !== undefined ? options.spacingAfter : 3;
-
-      let numLines = 1;
-      if (MAX_WIDTH && FONT_TO_USE.widthOfTextAtSize(textToProcess.replace(/\n/g, ' '), SIZE) > MAX_WIDTH) {
-        const segments = textToProcess.split('\n');
-        numLines = 0;
-        segments.forEach(segment => {
-          if (segment.trim() === '') {
-            numLines++;
-            return;
-          }
-          let currentLineForEstimation = '';
-          let linesForSegment = 1;
-          const words = segment.match(/[^ \-/]*[ \-/]?/g)?.filter(Boolean) || [segment];
-          for (const word of words) {
-            const testLineWithWord = currentLineForEstimation + word;
-            if (FONT_TO_USE.widthOfTextAtSize(testLineWithWord, SIZE) > MAX_WIDTH) {
-              linesForSegment++;
-              currentLineForEstimation = word;
-            } else {
-              currentLineForEstimation = testLineWithWord;
-            }
-          }
-          numLines += linesForSegment;
-        });
-        if (textToProcess.endsWith('\n') && segments[segments.length - 1].trim() !== '') numLines++;
-        if (numLines === 0 && textToProcess.trim() !== '') numLines = 1;
-      } else {
-        numLines = textToProcess.split('\n').length;
-        if (numLines === 0 && textToProcess.trim() !== '') numLines = 1;
-      }
-
-      const textHeight = textToProcess.trim() === '' ? 0 : numLines * LINE_HEIGHT;
-      return textHeight + SPACING_AFTER;
-    };
-
     const drawTextAndMeasureHeight = (textToDraw, xPos, currentY, options = {}) => {
-      const textToProcess = sanitizeForWinAnsi(textToDraw).replace(/₹/g, 'INR ');
+      const textToProcess = String(textToDraw ?? '').replace(/₹/g, 'INR ');
       const FONT_TO_USE = options.font || font;
       const SIZE = options.size || 10;
       const COLOR = options.color || rgb(0, 0, 0);
@@ -3937,7 +4396,38 @@ const generateBillPdf = async (req, res) => {
         wordBreaks: [' ', '-', '/'],
       });
 
-      return calculateTextHeight(textToDraw, { ...options, font: FONT_TO_USE, size: SIZE, lineHeight: LINE_HEIGHT });
+      let numLines = 1;
+      if (MAX_WIDTH && FONT_TO_USE.widthOfTextAtSize(textToProcess.replace(/\n/g, ' '), SIZE) > MAX_WIDTH) {
+        const segments = textToProcess.split('\n');
+        numLines = 0;
+        segments.forEach(segment => {
+          if (segment.trim() === '') {
+            numLines++;
+            return;
+          }
+          let currentLineForEstimation = '';
+          let linesForSegment = 1;
+          const words = segment.split(' ');
+          for (const word of words) {
+            const testLineWithWord = currentLineForEstimation ? `${currentLineForEstimation} ${word}` : word;
+            if (FONT_TO_USE.widthOfTextAtSize(testLineWithWord, SIZE) > MAX_WIDTH) {
+              linesForSegment++;
+              currentLineForEstimation = word;
+            } else {
+              currentLineForEstimation = testLineWithWord;
+            }
+          }
+          numLines += linesForSegment;
+        });
+        if (textToProcess.endsWith('\n') && segments[segments.length - 1].trim() !== '') numLines++;
+        if (numLines === 0 && textToProcess.trim() !== '') numLines = 1;
+      } else {
+        numLines = textToProcess.split('\n').length;
+        if (numLines === 0 && textToProcess.trim() !== '') numLines = 1;
+      }
+
+      const textHeight = textToProcess.trim() === '' ? 0 : numLines * LINE_HEIGHT;
+      return textHeight + SPACING_AFTER;
     };
 
     let currentY = y;
@@ -3956,15 +4446,15 @@ const generateBillPdf = async (req, res) => {
 
     currentY -= Math.max(shreeGaneshHeight, taxInvoiceHeight) + 18;
 
-    const companyNameText = org.name;
+    const companyNameText = 'MAHADEV FILAMENTS';
     const companyNameFontSize = 25;
     currentY -= drawTextAndMeasureHeight(companyNameText, leftMargin, currentY, { font: boldFont, size: companyNameFontSize, align: 'center', color: rgb(0.1, 0.3, 0.5) });
 
-    const addressText = org.address;
+    const addressText = 'BLOCK NO - 15, 1ST FLOOR, AMBIKA VIBHAG - 2, NEAR NAVJIVAN CIRCLE, U.M. ROAD, SURAT - 395007';
     const addressFontSize = 9;
     currentY -= drawTextAndMeasureHeight(addressText, leftMargin, currentY + 14, { size: addressFontSize, align: 'center', maxWidth: contentWidth, spacingAfter: 4 });
 
-    const companyGSTIN = org.gstin;
+    const companyGSTIN = '24ABEFM9966E1ZZ';
     const companyStateCode = companyGSTIN.substring(0, 2);
     const gstinWithStateText = `GSTIN: ${companyGSTIN}     STATE CODE: ${companyStateCode}`;
     const gstinFontSize = 10;
@@ -3976,154 +4466,61 @@ const generateBillPdf = async (req, res) => {
     const buyerAddress = bill.companyDetailsSnapshot?.address || bill.company?.address || 'N/A';
     const buyerGstin = bill.companyDetailsSnapshot?.gstNumber || bill.company?.gstNumber || 'N/A';
     const buyerStateCode = buyerGstin !== 'N/A' && buyerGstin.length >= 2 ? buyerGstin.substring(0, 2) : 'N/A';
+    const broker = bill.challan ? bill.challan.broker || 'direct' : 'direct';
+
+    let yLeft = y;
+    let yRight = y;
 
     const detailsMaxWidth = contentWidth / 2 - 20;
     const billDetailsColumnWidth = 180;
     const billDetailsX = rightMargin - billDetailsColumnWidth;
     const billDetailsMaxWidth = billDetailsColumnWidth - 10;
 
-    const hasConsignee = bill.isConsigneeDifferent && bill.consigneeDetailsSnapshot;
-    const consigneeSectionWidth = (billDetailsX - 15) - leftMargin;
-
-    // ── Pre-calculate all section heights ──────────────────────────────
-    let buyerHeight = 0;
-    let consigneeHeight = 0;
-    let billDetailsHeight = 0;
-
-    const bgPad = 10;
-
-    if (hasConsignee) {
-      const colGap = 16;
-      const subColWidth = (consigneeSectionWidth - 10 - colGap) / 2;
-      const lblOpt = { font: boldFont, size: 9, spacingAfter: 3 };
-      const nmOpt = { font: boldFont, size: 9, spacingAfter: 3, maxWidth: subColWidth };
-      const adrOpt = { size: 8, spacingAfter: 3, maxWidth: subColWidth };
-      const gstOpt = { font: boldFont, size: 8, spacingAfter: 3, maxWidth: subColWidth };
-
-      const consigneeName = bill.consigneeDetailsSnapshot.name || 'N/A';
-      const consigneeAddress = bill.consigneeDetailsSnapshot.address || 'N/A';
-      const consigneeGstin = bill.consigneeDetailsSnapshot.gstNumber || 'N/A';
-      const consigneeStateCode = bill.consigneeDetailsSnapshot.stateCode || 'N/A';
-
-      buyerHeight =
-        calculateTextHeight('Buyer:', lblOpt) +
-        calculateTextHeight(buyerName, nmOpt) +
-        calculateTextHeight(buyerAddress, adrOpt) +
-        calculateTextHeight(`GSTIN: ${buyerGstin}  STATE CODE: ${buyerStateCode}`, gstOpt);
-
-      consigneeHeight =
-        calculateTextHeight('Consignee:', lblOpt) +
-        calculateTextHeight(consigneeName, nmOpt) +
-        calculateTextHeight(consigneeAddress, adrOpt) +
-        calculateTextHeight(`GSTIN: ${consigneeGstin}  STATE CODE: ${consigneeStateCode}`, gstOpt);
-    } else {
-      buyerHeight =
-        calculateTextHeight('Buyer:', { font: boldFont, size: 11, spacingAfter: 4 }) +
-        calculateTextHeight(buyerName, { font: boldFont, size: 10, spacingAfter: 4, maxWidth: detailsMaxWidth }) +
-        calculateTextHeight(buyerAddress, { size: 9, spacingAfter: 4, maxWidth: detailsMaxWidth }) +
-        calculateTextHeight(`GSTIN: ${buyerGstin}     STATE CODE: ${buyerStateCode}`, { font: boldFont, size: 9, spacingAfter: 4, maxWidth: detailsMaxWidth });
-    }
-
-    const bdLabelOpt = { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth };
-    billDetailsHeight =
-      calculateTextHeight(`Date : ${new Date(bill.billDate).toLocaleDateString('en-IN')}`, bdLabelOpt) +
-      calculateTextHeight(`Invoice No : ${bill.billNumber || 'N/A'}`, bdLabelOpt) +
-      calculateTextHeight(`Challan No : ${(bill.challanNumber || bill.challan?.challanNumber || '').split(',').map(num => num.trim().split('/').pop()).join(', ')}`, bdLabelOpt) +
-      (bill.eWayBillNumber ? calculateTextHeight(`E-way Bill No : ${bill.eWayBillNumber}`, bdLabelOpt) : 0) +
-      (bill.paymentTermsDays ? calculateTextHeight(`Mode/Terms of Payment : ${bill.paymentTermsDays} days`, bdLabelOpt) : 0);
-
-    // ── Draw backgrounds sized to content ──────────────────────────────
-    const maxLeftContentHeight = Math.max(buyerHeight, consigneeHeight || 0);
-    const leftBgHeight = maxLeftContentHeight + bgPad * 2;
-    const leftBgY = y - leftBgHeight + bgPad;
-
-    const rightBgHeight = billDetailsHeight + bgPad * 2;
-    const rightBgY = y - rightBgHeight + bgPad;
-
-    const buyerSectionWidth = hasConsignee ? consigneeSectionWidth : (detailsMaxWidth + 20);
-
+    // Draw background for buyer/consignee section
+    const buyerSectionHeight = bill.isConsigneeDifferent ? 155 : 100;
     page.drawRectangle({
       x: leftMargin,
-      y: leftBgY,
-      width: buyerSectionWidth,
-      height: leftBgHeight,
+      y: yLeft - (bill.isConsigneeDifferent ? 144 : 84),
+      width: detailsMaxWidth + 20,
+      height: buyerSectionHeight,
       color: rgb(0.95, 0.95, 0.95),
       opacity: 0.5,
     });
 
+    // Draw background for bill details
     page.drawRectangle({
       x: billDetailsX - 5,
-      y: rightBgY,
+      y: yRight - 64,
       width: billDetailsColumnWidth,
-      height: rightBgHeight,
+      height: 80,
       color: rgb(0.95, 0.95, 0.95),
       opacity: 0.5,
     });
 
-    // ── Draw content ───────────────────────────────────────────────────
-    let yLeft = y - bgPad;
-    let yRight = y - bgPad;
+    // Draw Buyer details
+    yLeft -= drawTextAndMeasureHeight(`Buyer:`, leftMargin + 5, yLeft, { font: boldFont, size: 11, spacingAfter: 4 });
+    yLeft -= drawTextAndMeasureHeight(buyerName, leftMargin + 5, yLeft, { font: boldFont, size: 10, spacingAfter: 4, maxWidth: detailsMaxWidth });
+    yLeft -= drawTextAndMeasureHeight(buyerAddress, leftMargin + 5, yLeft, { size: 9, spacingAfter: 4, maxWidth: detailsMaxWidth });
+    yLeft -= drawTextAndMeasureHeight(`GSTIN: ${buyerGstin}     STATE CODE: ${buyerStateCode}`, leftMargin + 5, yLeft, { font: boldFont, size: 9, spacingAfter: 4, maxWidth: detailsMaxWidth });
 
-    if (hasConsignee) {
+    // Draw Consignee details if different
+    if (bill.isConsigneeDifferent && bill.consigneeDetailsSnapshot) {
       const consigneeName = bill.consigneeDetailsSnapshot.name || 'N/A';
       const consigneeAddress = bill.consigneeDetailsSnapshot.address || 'N/A';
       const consigneeGstin = bill.consigneeDetailsSnapshot.gstNumber || 'N/A';
       const consigneeStateCode = bill.consigneeDetailsSnapshot.stateCode || 'N/A';
-
-      const colGap = 16;
-      const subColWidth = (consigneeSectionWidth - 10 - colGap) / 2;
-      const buyerColX = leftMargin + 5;
-      const consigneeColX = buyerColX + subColWidth + colGap;
-      const sectionTopY = yLeft;
-
-      let yBuyer = yLeft;
-      let yConsignee = yLeft;
-
-      const labelOptions = { font: boldFont, size: 9, spacingAfter: 3 };
-      const nameOptions = { font: boldFont, size: 9, spacingAfter: 3, maxWidth: subColWidth };
-      const addressOptions = { size: 8, spacingAfter: 3, maxWidth: subColWidth };
-      const gstinOptions = { font: boldFont, size: 8, spacingAfter: 3, maxWidth: subColWidth };
-
-      yBuyer -= drawTextAndMeasureHeight(`Buyer:`, buyerColX, yBuyer, labelOptions);
-      yBuyer -= drawTextAndMeasureHeight(buyerName, buyerColX, yBuyer, nameOptions);
-      yBuyer -= drawTextAndMeasureHeight(buyerAddress, buyerColX, yBuyer, addressOptions);
-      yBuyer -= drawTextAndMeasureHeight(`GSTIN: ${buyerGstin}  STATE CODE: ${buyerStateCode}`, buyerColX, yBuyer, gstinOptions);
-
-      yConsignee -= drawTextAndMeasureHeight(`Consignee:`, consigneeColX, yConsignee, labelOptions);
-      yConsignee -= drawTextAndMeasureHeight(consigneeName, consigneeColX, yConsignee, nameOptions);
-      yConsignee -= drawTextAndMeasureHeight(consigneeAddress, consigneeColX, yConsignee, addressOptions);
-      yConsignee -= drawTextAndMeasureHeight(`GSTIN: ${consigneeGstin}  STATE CODE: ${consigneeStateCode}`, consigneeColX, yConsignee, gstinOptions);
-
-      page.drawLine({
-        start: { x: consigneeColX - colGap / 2, y: sectionTopY + 6 },
-        end: { x: consigneeColX - colGap / 2, y: Math.min(yBuyer, yConsignee) },
-        thickness: 0.5,
-        color: rgb(0.75, 0.75, 0.75)
-      });
-
-      yLeft = Math.min(yBuyer, yConsignee);
-    } else {
-      yLeft -= drawTextAndMeasureHeight(`Buyer:`, leftMargin + 5, yLeft, { font: boldFont, size: 11, spacingAfter: 4 });
-      yLeft -= drawTextAndMeasureHeight(buyerName, leftMargin + 5, yLeft, { font: boldFont, size: 10, spacingAfter: 4, maxWidth: detailsMaxWidth });
-      yLeft -= drawTextAndMeasureHeight(buyerAddress, leftMargin + 5, yLeft, { size: 9, spacingAfter: 4, maxWidth: detailsMaxWidth });
-      yLeft -= drawTextAndMeasureHeight(`GSTIN: ${buyerGstin}     STATE CODE: ${buyerStateCode}`, leftMargin + 5, yLeft, { font: boldFont, size: 9, spacingAfter: 4, maxWidth: detailsMaxWidth });
+      
+      yLeft -= drawTextAndMeasureHeight(`Consignee:`, leftMargin + 5, yLeft, { font: boldFont, size: 11, spacingAfter: 4 });
+      yLeft -= drawTextAndMeasureHeight(consigneeName, leftMargin + 5, yLeft, { font: boldFont, size: 10, spacingAfter: 4, maxWidth: detailsMaxWidth });
+      yLeft -= drawTextAndMeasureHeight(consigneeAddress, leftMargin + 5, yLeft, { size: 9, spacingAfter: 4, maxWidth: detailsMaxWidth });
+      yLeft -= drawTextAndMeasureHeight(`GSTIN: ${consigneeGstin}     STATE CODE: ${consigneeStateCode}`, leftMargin + 5, yLeft, { font: boldFont, size: 9, spacingAfter: 4, maxWidth: detailsMaxWidth });
     }
 
+    // Draw bill details (right side)
     yRight -= drawTextAndMeasureHeight(`Date : ${new Date(bill.billDate).toLocaleDateString('en-IN')}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
     yRight -= drawTextAndMeasureHeight(`Invoice No : ${bill.billNumber || 'N/A'}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
-
-    const displayChallanNumber = (bill.challanNumber || bill.challan?.challanNumber || '')
-      .split(',')
-      .map(num => num.trim().split('/').pop())
-      .join(', ');
-
-    yRight -= drawTextAndMeasureHeight(
-      `Challan No : ${displayChallanNumber}`,
-      billDetailsX,
-      yRight,
-      { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth }
-    );
-
+    yRight -= drawTextAndMeasureHeight(`Challan No : ${bill.challanNumber || bill.challan?.challanNumber || ''}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
+    // Print E-way bill number and Payment Terms after challan
     if (bill.eWayBillNumber) {
       yRight -= drawTextAndMeasureHeight(`E-way Bill No : ${bill.eWayBillNumber}`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
     }
@@ -4131,8 +4528,9 @@ const generateBillPdf = async (req, res) => {
       yRight -= drawTextAndMeasureHeight(`Mode/Terms of Payment : ${bill.paymentTermsDays} days`, billDetailsX, yRight, { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth });
     }
 
-    y = Math.min(yLeft, yRight) - lineSpacing;
+    y = Math.min(yLeft, yRight) - (bill.isConsigneeDifferent ? lineSpacing + 10 : lineSpacing);
 
+    // Continue with the rest of the PDF generation (items table, totals, etc.)
     page.drawRectangle({
       x: leftMargin,
       y: y - 22,
@@ -4199,38 +4597,11 @@ const generateBillPdf = async (req, res) => {
       y -= maxHeightThisRow + itemLineSpacing / 2;
     });
 
-    const minItemRows = 7;
+    const minItemRows = bill.isConsigneeDifferent ? 4 : 7;
     if (bill.items.length < minItemRows) {
       for (let i = bill.items.length; i < minItemRows; i++) {
         y -= itemLineSpacing;
       }
-    }
-
-    let totalBoxes = bill.totalBoxes || 0;
-    let totalCops = bill.totalCops || 0;
-
-    if (bill.challans && bill.challans.length > 0) {
-      totalBoxes = 0;
-      totalCops = 0;
-      bill.challans.forEach(challan => {
-        totalBoxes += challan.boxDetails ? challan.boxDetails.length : 0;
-        totalCops += challan.totalCops || 0;
-      });
-    } else if (bill.challan) {
-      totalBoxes = bill.challan.boxDetails ? bill.challan.boxDetails.length : 0;
-      totalCops = bill.challan.totalCops || 0;
-    }
-
-    const boxesLabel = org.terminology?.boxesLabel || 'Boxes';
-    const copsLabel = org.terminology?.copsLabel || 'Cops';
-
-    if (totalBoxes > 0) {
-      y -= drawTextAndMeasureHeight(
-        `${boxesLabel}: ${totalBoxes}  |  ${copsLabel}: ${totalCops}`,
-        colPositions.desc,
-        y,
-        { font: boldFont, size: 9, spacingAfter: 0, color: rgb(0.2, 0.2, 0.2) }
-      );
     }
 
     page.drawLine({ start: { x: leftMargin, y: y }, end: { x: rightMargin, y: y }, thickness: 1.5, color: rgb(0.2, 0.2, 0.2) });
@@ -4311,16 +4682,16 @@ const generateBillPdf = async (req, res) => {
     let bankDetailsY = y;
     const bankDetailsMaxWidth = contentWidth * 0.5;
     bankDetailsY -= drawTextAndMeasureHeight('Bank Details:', leftMargin, bankDetailsY, { font: boldFont, size: 12, spacingAfter: 4 });
-    bankDetailsY -= drawTextAndMeasureHeight(`Bank Name: ${org.bankName}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
-    bankDetailsY -= drawTextAndMeasureHeight(`Account Name: ${org.accountName}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
-    bankDetailsY -= drawTextAndMeasureHeight(`Account No.: ${org.accountNo}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
-    bankDetailsY -= drawTextAndMeasureHeight(`IFSC Code: ${org.ifsc}`, leftMargin, bankDetailsY, { size: 10, spacingAfter: 10, maxWidth: bankDetailsMaxWidth });
+    bankDetailsY -= drawTextAndMeasureHeight('Bank Name: Prime Bank of India', leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
+    bankDetailsY -= drawTextAndMeasureHeight('Account Name: Mahadev Filaments', leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
+    bankDetailsY -= drawTextAndMeasureHeight('Account No.: 10062001003372', leftMargin, bankDetailsY, { size: 10, spacingAfter: 3, maxWidth: bankDetailsMaxWidth });
+    bankDetailsY -= drawTextAndMeasureHeight('IFSC Code: PMEC0100607', leftMargin, bankDetailsY, { size: 10, spacingAfter: 10, maxWidth: bankDetailsMaxWidth });
 
     let declarationTitleY = bankDetailsY;
-    const forCompanyText = `For ${org.name}`;
+    const forCompanyText = 'For MAHADEV FILAMENTS';
     const forCompanyFontSize = 11;
     const forCompanyOptions = { font: boldFont, size: forCompanyFontSize, spacingAfter: 3, align: 'right' };
-    const forCompanyWidth = boldFont.widthOfTextAtSize(sanitizeForWinAnsi(forCompanyText), forCompanyFontSize);
+    const forCompanyWidth = boldFont.widthOfTextAtSize(forCompanyText, forCompanyFontSize);
 
     const declarationTitleHeight = drawTextAndMeasureHeight('Declaration:', leftMargin, declarationTitleY, { font: boldFont, size: 12, spacingAfter: 4 });
     drawTextAndMeasureHeight(forCompanyText, rightMargin - forCompanyWidth, declarationTitleY, forCompanyOptions);
@@ -4363,22 +4734,18 @@ const generateBillPdf = async (req, res) => {
       color: rgb(0.1, 0.3, 0.5),
       opacity: 0.1,
     });
-    const contactText = `Contact: ${org.contactPerson} | Phone: ${org.phone} | Email: ${org.email}`;
-    const contactTextWidth = font.widthOfTextAtSize(sanitizeForWinAnsi(contactText), 9);
+    const contactText = 'Contact: Bharat Radiya | Phone: 9825492079 | Email: mahadevfilaments@gmail.com';
+    const contactTextWidth = font.widthOfTextAtSize(contactText, 9);
     drawTextAndMeasureHeight(contactText, leftMargin + (contentWidth - contactTextWidth) / 2, y, { size: 9, spacingAfter: 0, color: rgb(0.3, 0.3, 0.3) });
 
-    // ✅ FIXED: Properly convert Uint8Array to Buffer to prevent binary corruption
     const pdfBytes = await pdfDoc.save();
-    const pdfBuffer = Buffer.from(pdfBytes.buffer, pdfBytes.byteOffset, pdfBytes.byteLength);
     const pdfFileName = `Bill-${bill.billNumber.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
     log(`PDF generated for bill ${bill.billNumber}`, 'info');
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${pdfFileName}"`);
-    res.setHeader('Content-Length', pdfBuffer.length);
-    res.end(pdfBuffer);
-
+    res.send(Buffer.from(pdfBytes));
   } catch (error) {
     log(`Error generating PDF for bill ID ${billId}: ${error.message} - Stack: ${error.stack}`, 'error');
     if (!res.headersSent) {
@@ -4423,7 +4790,7 @@ const amountToWords = (number) => {
 // @access  Private/Admin
 const downloadBillsExcel = async (req, res) => {
   const { companyId, startDate, endDate, status, month, year } = req.query;
-  const query = { organizationId: req.organizationId };
+  const query = {};
 
   if (companyId) query.company = companyId;
   if (status) query.status = status;
@@ -4583,7 +4950,7 @@ const downloadBillsExcel = async (req, res) => {
 // @access  Private/Admin
 const downloadBillsPdf = async (req, res) => {
   const { companyId, startDate, endDate, status, month, year } = req.query;
-  const query = { organizationId: req.organizationId };
+  const query = {};
 
   if (companyId) query.company = companyId;
   if (status) query.status = status;
@@ -4621,29 +4988,13 @@ const downloadBillsPdf = async (req, res) => {
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    const sanitizeForWinAnsi = (text) => {
-      const greekToLatinMap = {
-        '\u0391':'A','\u0392':'B','\u0393':'G','\u0394':'D','\u0395':'E','\u0396':'Z','\u0397':'H','\u0398':'U',
-        '\u0399':'I','\u039A':'K','\u039B':'L','\u039C':'M','\u039D':'N','\u039E':'J','\u039F':'O','\u03A0':'P',
-        '\u03A1':'R','\u03A3':'S','\u03A4':'T','\u03A5':'Y','\u03A6':'F','\u03A7':'X','\u03A8':'C','\u03A9':'W',
-        '\u03AA':'I','\u03AB':'Y',
-        '\u03B1':'a','\u03B2':'b','\u03B3':'g','\u03B4':'d','\u03B5':'e','\u03B6':'z','\u03B7':'h','\u03B8':'u',
-        '\u03B9':'i','\u03BA':'k','\u03BB':'l','\u03BC':'m','\u03BD':'n','\u03BE':'j','\u03BF':'o','\u03C0':'p',
-        '\u03C1':'r','\u03C2':'s','\u03C3':'s','\u03C4':'t','\u03C5':'y','\u03C6':'f','\u03C7':'x','\u03C8':'c',
-        '\u03C9':'w','\u03CA':'i','\u03CB':'y',
-      };
-      return String(text ?? '')
-        .replace(/[\u0391-\u03C9]/g, (ch) => greekToLatinMap[ch] || '?')
-        .replace(/[^\x00-\xFF]/g, '?');
-    };
-
     let page = pdfDoc.addPage(PageSizes.A4);
     const { width, height } = page.getSize();
     const margin = 40;
     const maxY = margin + 20;
 
     const drawText = (text, x, y, size = 10, isBold = false) => {
-      const safeText = sanitizeForWinAnsi(text).replace(/₹/g, 'Rs. ');
+      const safeText = String(text || '').replace(/₹/g, 'Rs. ');
       const currentFont = isBold ? boldFont : font;
 
       page.drawText(safeText, {
@@ -4657,7 +5008,7 @@ const downloadBillsPdf = async (req, res) => {
     };
 
     const drawCenteredText = (text, x, width, y, size = 10, isBold = false) => {
-      const safeText = sanitizeForWinAnsi(text).replace(/₹/g, 'Rs. ');
+      const safeText = String(text || '').replace(/₹/g, 'Rs. ');
       const currentFont = isBold ? boldFont : font;
       const textWidth = currentFont.widthOfTextAtSize(safeText, size);
       const centeredX = x + (width - textWidth) / 2;
@@ -4673,7 +5024,7 @@ const downloadBillsPdf = async (req, res) => {
     };
 
     const drawRightAlignedText = (text, x, width, y, size = 10, isBold = false) => {
-      const safeText = sanitizeForWinAnsi(text).replace(/₹/g, 'Rs. ');
+      const safeText = String(text || '').replace(/₹/g, 'Rs. ');
       const currentFont = isBold ? boldFont : font;
       const textWidth = currentFont.widthOfTextAtSize(safeText, size);
       const rightX = x + width - textWidth - 3;
@@ -5011,11 +5362,8 @@ const downloadBillsPdf = async (req, res) => {
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    // res.send(Buffer.from(pdfBytes));
-    const pdfBuffer = Buffer.from(pdfBytes.buffer, pdfBytes.byteOffset, pdfBytes.byteLength);
-    res.setHeader('Content-Length', pdfBuffer.length);
-    res.end(pdfBuffer);
-
+    res.send(Buffer.from(pdfBytes));
+    
   } catch (error) {
     log(`Error generating PDF report: ${error.message} - Stack: ${error.stack}`, 'error');
     if (!res.headersSent) {
@@ -5059,7 +5407,7 @@ const createBillFromChallans = async (req, res) => {
     const resolvedFY = financialYear || getFinancialYear(resolvedDate);
 
     if (!billNumber) {
-      billNumber = await generateBillNumber(resolvedFY, req.organizationId);
+      billNumber = await generateBillNumber(resolvedFY);
     } else {
       const expectedPrefix = `${resolvedFY}/`;
       if (!billNumber.startsWith(expectedPrefix)) {
@@ -5093,7 +5441,7 @@ const createBillFromChallans = async (req, res) => {
       }
     }
 
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings();
     const items = [];
 
     for (const challan of challans) {
@@ -5124,7 +5472,6 @@ const createBillFromChallans = async (req, res) => {
     );
 
     const newBill = new Bill({
-      organizationId: req.organizationId,
       billNumber,
       financialYear: resolvedFY,
       billDate: resolvedDate,
@@ -5188,6 +5535,3 @@ module.exports = {
   createBillFromChallans,
   getNextBillNumber // ✅ IMPORTANT
 };
-
-
-//

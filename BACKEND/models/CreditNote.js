@@ -9,15 +9,10 @@ const CreditNoteItemSchema = new mongoose.Schema({
 }, { _id: true });
 
 const CreditNoteSchema = new mongoose.Schema({
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: false,
-    index: true,
-  },
   creditNoteNumber: {
     type: String,
     required: true,
+    unique: true,
     trim: true,
   },
   creditNoteDate: {
@@ -163,6 +158,14 @@ const CreditNoteSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  withCops: {
+    type: Boolean,
+    default: false
+  },
+  totalCops: {
+    type: Number,
+    default: 0
+  },
   status: {
     type: String,
     enum: ['Pending', 'Processed', 'Cancelled'],
@@ -192,7 +195,7 @@ const CreditNoteSchema = new mongoose.Schema({
 // Pre-save hook to calculate taxes and amounts
 CreditNoteSchema.pre('save', async function(next) {
   const Settings = mongoose.model('Settings');
-  const settings = await Settings.getSettings(this.organizationId);
+  const settings = await Settings.getSettings();
 
   // Calculate subTotalAmount from items
   this.subTotalAmount = this.items.reduce((acc, item) => acc + item.amount, 0);
@@ -242,7 +245,5 @@ CreditNoteSchema.pre('save', async function(next) {
 
   next();
 });
-
-CreditNoteSchema.index({ organizationId: 1, creditNoteNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model('CreditNote', CreditNoteSchema);

@@ -187,11 +187,6 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [openDropdowns, setOpenDropdowns] = useState({});
 
-  const currentUser = AuthService.getCurrentUser();
-  const organization = currentUser?.organization || null;
-  const isSuperAdmin = currentUser?.role === 'superadmin';
-  const isScopedContext = currentUser?.isScopedContext === true;
-
   const toggleDropdown = (linkTo) => {
     setOpenDropdowns((prev) => ({
       ...prev,
@@ -202,24 +197,6 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const handleLogout = () => {
     AuthService.logout();
     navigate('/login');
-  };
-
-  const handleSwitchOrganization = () => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (user) {
-      const limitedUser = {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        token: user.token,
-        needsOrgSelection: true,
-        isScopedContext: false,
-        organization: null,
-      };
-      localStorage.setItem('user', JSON.stringify(limitedUser));
-    }
-    navigate('/select-organization');
   };
 
   const handleLinkClick = () => {
@@ -291,7 +268,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
                 <h1 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
                   Billing Software
                 </h1>
-                <p className="text-xs text-slate-500 font-medium">{organization?.name || 'Mahadev Filaments'}</p>
+                <p className="text-xs text-slate-500 font-medium">Mahadev Filaments</p>
               </div>
             </div>
             
@@ -305,15 +282,6 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
               const IconComponent = link.icon;
               const isActive = location.pathname.startsWith(link.to);
               const isDropdownOpen = openDropdowns[link.to];
-
-              const filteredSubLinks = link.subLinks
-                ? link.subLinks.filter(sl => {
-                    if (sl.to === "/admin-panel" && !isSuperAdmin) return false;
-                    return true;
-                  })
-                : link.subLinks;
-
-              if (link.subLinks && filteredSubLinks.length === 0) return null;
 
               return (
                 <div key={link.to}>
@@ -436,7 +404,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
                           transition={{ duration: 0.3 }}
                           className="ml-6 mt-1 space-y-1"
                         >
-                          {filteredSubLinks.map((subLink, subIndex) => {
+                          {link.subLinks.map((subLink, subIndex) => {
                             const SubIconComponent = subLink.icon;
                             const isSubActive = location.pathname === subLink.to;
 
@@ -506,13 +474,13 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
                                       opacity: hoveredItem === subLink.to || isSubActive ? 1 : 0.5
                                     }}
                                   >
-                                    <ChevronRight className="h-3 w-3" />
+                                    <ChevronRight className="h-4 w-4" />
                                   </motion.div>
 
-                                  {/* Sub-link active indicator */}
+                                  {/* Sub-link active indicator dot */}
                                   {isSubActive && (
                                     <motion.div
-                                      className={`absolute left-0 top-1/2 w-0.5 h-5 bg-gradient-to-b ${subLink.gradient} rounded-r-full`}
+                                      className={`absolute left-0 top-1/2 w-1 h-6 bg-gradient-to-b ${subLink.gradient} rounded-r-full`}
                                       initial={{ scale: 0, y: '-50%' }}
                                       animate={{ scale: 1, y: '-50%' }}
                                       transition={{ type: "spring", stiffness: 300, damping: 20 }}
@@ -534,24 +502,6 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
 
         {/* Logout Section */}
         <div className="relative p-4 bg-gradient-to-t from-slate-50/80 to-transparent border-t border-slate-200/50 backdrop-blur-sm">
-          {isSuperAdmin && isScopedContext && (
-            <motion.button
-              onClick={handleSwitchOrganization}
-              className="group relative flex items-center justify-center w-full py-3 px-4 rounded-2xl
-                        bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600
-                        text-white font-semibold shadow-lg shadow-blue-500/25 transition-all duration-300
-                        hover:shadow-xl hover:shadow-blue-500/40 overflow-hidden mb-3"
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="flex items-center relative z-10">
-                <div className="p-2 rounded-xl bg-white/20 mr-3">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <span className="font-semibold">Switch Organization</span>
-              </div>
-            </motion.button>
-          )}
           <motion.button
             onClick={handleLogout}
             className="group relative flex items-center justify-center w-full py-4 px-4 rounded-2xl
@@ -580,7 +530,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
-            © {new Date().getFullYear()} {organization?.name || 'Mahadev Filaments'}
+            © {new Date().getFullYear()} Mahadev Filaments
           </motion.p>
         </div>
       </motion.div>

@@ -97,14 +97,14 @@ const ModernTable = ({
                     <motion.th
                       key={column.key}
                       variants={itemVariants}
-                      className="text-left font-semibold text-gray-700"
+                      className="text-left font-semibold text-slate-200"
                     >
                       {column.label}
                     </motion.th>
                   ))}
                   <motion.th 
                     variants={itemVariants}
-                    className="text-right font-semibold text-gray-700"
+                    className="text-right font-semibold text-slate-200"
                   >
                     Actions
                   </motion.th>
@@ -119,7 +119,7 @@ const ModernTable = ({
                     className="transition-colors duration-200"
                   >
                     {columns.map((column) => (
-                      <td key={`${row.id}-${column.key}`} className="text-gray-600">
+                      <td key={`${row.id}-${column.key}`} className="text-slate-300">
                         {column.render ? column.render(row[column.key], row) : row[column.key]}
                       </td>
                     ))}

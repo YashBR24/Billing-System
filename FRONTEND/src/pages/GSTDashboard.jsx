@@ -77,7 +77,6 @@ const GSTDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [chartType, setChartType] = useState("Bar");
   const [error, setError] = useState("");
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const formatCurrency = (amount) => {
     return (
@@ -128,12 +127,6 @@ const GSTDashboard = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const handleExportExcel = async () => {
     try {
@@ -301,59 +294,52 @@ const GSTDashboard = () => {
     },
   };
 
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: "top",
-      labels: { usePointStyle: true, padding: 20, font: { size: 12, weight: "500" } },
-    },
-    tooltip: {
-      backgroundColor: "rgba(0, 0, 0, 0.8)",
-      titleColor: "#fff",
-      bodyColor: "#fff",
-      borderColor: "rgba(255, 255, 255, 0.1)",
-      borderWidth: 1,
-      cornerRadius: 8,
-      callbacks: {
-        label: (context) =>
-          `${context.dataset.label}: Rs. ${context.parsed.y?.toLocaleString("en-IN") || context.parsed.toLocaleString("en-IN")}`,
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "top",
+        labels: { usePointStyle: true, padding: 20, font: { size: 12, weight: "500" } },
+      },
+      tooltip: {
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        titleColor: "#fff",
+        bodyColor: "#fff",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+        borderWidth: 1,
+        cornerRadius: 8,
+        callbacks: {
+          label: (context) =>
+            `${context.dataset.label}: Rs. ${context.parsed.y?.toLocaleString("en-IN") || context.parsed.toLocaleString("en-IN")}`,
+        },
       },
     },
-  },
-  scales: chartType === "Doughnut" ? {} : {
-    y: {
-      beginAtZero: true,
-      grid: { color: "rgba(0, 0, 0, 0.05)" },
-      ticks: {
-        font: { size: 11 },
-        callback: (value) => `Rs. ${value.toLocaleString("en-IN")}`,
-      },
-    },
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-  },
-};
+    scales:
+      chartType === "Doughnut"
+        ? {}
+        : {
+            y: {
+              beginAtZero: true,
+              grid: { color: "rgba(0, 0, 0, 0.05)" },
+              ticks: {
+                font: { size: 11 },
+                callback: (value) => `Rs. ${value.toLocaleString("en-IN")}`,
+              },
+            },
+            x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+          },
+  };
 
-const renderGSTR3BTable = () => {
-  if (viewMode !== "month" || !monthlyData) return null;
-  const { gstr3b } = monthlyData;
-    
-    const gstrRows = [
-      { label: "3.1 Outward taxable supplies", data: gstr3b.table31, color: "" },
-      { label: "3.2 Outward taxable (reverse)", data: gstr3b.table32, color: "" },
-      { label: "4.0 Eligible ITC", data: gstr3b.table40, color: "emerald" },
-      { label: "4.1 ITC Reversed (Credit)", data: gstr3b.table41, color: "amber" },
-      { label: "4.2 ITC Reversed (Debit)", data: gstr3b.table42, color: "rose" },
-      { label: "6.1 Interest / Late fee", data: gstr3b.table61, color: "purple" },
-    ];
-
+  const renderGSTR3BTable = () => {
+    if (viewMode !== "month" || !monthlyData) return null;
+    const { gstr3b } = monthlyData;
     return (
       <motion.div
-        className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200/50 p-4 md:p-6"
+        className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200/50 p-6"
         variants={itemVariants}
       >
-        <div className="flex items-center gap-3 mb-4 md:mb-6">
+        <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
             <FileBarChart className="h-5 w-5" />
           </div>
@@ -363,109 +349,93 @@ const renderGSTR3BTable = () => {
           </div>
         </div>
 
-        {isMobile ? (
-          <div className="space-y-3">
-            {gstrRows.map((row) => (
-              <div key={row.label} className={`bg-slate-50 rounded-lg p-3 border-l-4 border-${row.color}-400`}>
-                <p className="font-medium text-slate-800 text-sm mb-2">{row.label}</p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div><span className="text-slate-500">Taxable:</span> <span className="font-medium">{formatCurrency(row.data.taxableValue)}</span></div>
-                  <div><span className="text-slate-500">CGST:</span> <span className="font-medium">{formatCurrency(row.data.cgst)}</span></div>
-                  <div><span className="text-slate-500">SGST:</span> <span className="font-medium">{formatCurrency(row.data.sgst)}</span></div>
-                  <div><span className="text-slate-500">IGST:</span> <span className="font-medium">{formatCurrency(row.data.igst)}</span></div>
-                  <div className="col-span-2 pt-2 border-t border-slate-200"><span className="font-semibold">Total:</span> <span className={`font-bold ${row.color ? `text-${row.color}-600` : ''}`}>{formatCurrency(row.data.totalTax || row.data.totalReversed || row.data.totalITC)}</span></div>
-                </div>
-              </div>
-            ))}
-            <div className="bg-slate-100 rounded-lg p-3">
-              <p className="font-bold text-slate-800">Net Tax Liability</p>
-              <p className={`text-lg font-bold ${gstr3b.summary.netPayable < 0 ? "text-emerald-600" : "text-red-600"}`}>Rs. {formatCurrency(gstr3b.summary.netPayable)}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left py-3 px-4 font-semibold text-slate-700">Nature of Supplies</th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-700">Taxable Value</th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-700">CGST</th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-700">SGST</th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-700">IGST</th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-700">Total Tax</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-3 px-4 font-medium text-slate-800">3.1 Outward taxable supplies</td>
-                  <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table31.taxableValue)}</td>
-                  <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table31.cgst)}</td>
-                  <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table31.sgst)}</td>
-                  <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table31.igst)}</td>
-                  <td className="text-right py-3 px-4 font-semibold">{formatCurrency(gstr3b.table31.totalTax)}</td>
-                </tr>
-                <tr className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-3 px-4 font-medium text-slate-800">3.2 Outward taxable (reverse charge)</td>
-                  <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table32.taxableValue)}</td>
-                  <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table32.cgst)}</td>
-                  <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table32.sgst)}</td>
-                  <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table32.igst)}</td>
-                  <td className="text-right py-3 px-4 font-semibold">{formatCurrency(gstr3b.table32.totalTax)}</td>
-                </tr>
-                <tr className="border-b border-slate-100 bg-emerald-50/50">
-                  <td className="py-3 px-4 font-medium text-emerald-800">4.0 Eligible ITC</td>
-                  <td className="text-right py-3 px-4">-</td>
-                  <td className="text-right py-3 px-4 text-emerald-700">{formatCurrency(gstr3b.table40.cgst)}</td>
-                  <td className="text-right py-3 px-4 text-emerald-700">{formatCurrency(gstr3b.table40.sgst)}</td>
-                  <td className="text-right py-3 px-4 text-emerald-700">{formatCurrency(gstr3b.table40.igst)}</td>
-                  <td className="text-right py-3 px-4 font-semibold text-emerald-700">{formatCurrency(gstr3b.table40.totalITC)}</td>
-                </tr>
-                <tr className="border-b border-slate-100 bg-amber-50/50">
-                  <td className="py-3 px-4 font-medium text-amber-800">4.1 ITC Reversed (Credit Notes)</td>
-                  <td className="text-right py-3 px-4">-</td>
-                  <td className="text-right py-3 px-4 text-amber-700">{formatCurrency(gstr3b.table41.cgst)}</td>
-                  <td className="text-right py-3 px-4 text-amber-700">{formatCurrency(gstr3b.table41.sgst)}</td>
-                  <td className="text-right py-3 px-4 text-amber-700">{formatCurrency(gstr3b.table41.igst)}</td>
-                  <td className="text-right py-3 px-4 font-semibold text-amber-700">{formatCurrency(gstr3b.table41.totalReversed)}</td>
-                </tr>
-                <tr className="border-b border-slate-100 bg-rose-50/50">
-                  <td className="py-3 px-4 font-medium text-rose-800">4.2 ITC Reversed (Debit Notes)</td>
-                  <td className="text-right py-3 px-4">-</td>
-                  <td className="text-right py-3 px-4 text-rose-700">{formatCurrency(gstr3b.table42.cgst)}</td>
-                  <td className="text-right py-3 px-4 text-rose-700">{formatCurrency(gstr3b.table42.sgst)}</td>
-                  <td className="text-right py-3 px-4 text-rose-700">{formatCurrency(gstr3b.table42.igst)}</td>
-                  <td className="text-right py-3 px-4 font-semibold text-rose-700">{formatCurrency(gstr3b.table42.totalReversed)}</td>
-                </tr>
-                <tr className="border-b border-slate-100 bg-purple-50/50">
-                  <td className="py-3 px-4 font-medium text-purple-800">6.1 Interest / Late fee</td>
-                  <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table61.taxableValue)}</td>
-                  <td className="text-right py-3 px-4 text-purple-700">{formatCurrency(gstr3b.table61.cgst)}</td>
-                  <td className="text-right py-3 px-4 text-purple-700">{formatCurrency(gstr3b.table61.sgst)}</td>
-                  <td className="text-right py-3 px-4 text-purple-700">{formatCurrency(gstr3b.table61.igst)}</td>
-                  <td className="text-right py-3 px-4 font-semibold text-purple-700">{formatCurrency(gstr3b.table61.totalTax)}</td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr className="bg-slate-100 border-t-2 border-slate-300">
-                  <td className="py-3 px-4 font-bold text-slate-800">Net Tax Liability</td>
-                  <td className="text-right py-3 px-4">-</td>
-                  <td className="text-right py-3 px-4">-</td>
-                  <td className="text-right py-3 px-4">-</td>
-                  <td className="text-right py-3 px-4">-</td>
-                  <td className={`text-right py-3 px-4 font-bold text-lg ${gstr3b.summary.netPayable < 0 ? "text-emerald-600" : "text-red-600"}`}>
-                    Rs. {formatCurrency(gstr3b.summary.netPayable)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="text-left py-3 px-4 font-semibold text-slate-700">Nature of Supplies</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">Taxable Value</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">CGST</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">SGST</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">IGST</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">Total Tax</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="py-3 px-4 font-medium text-slate-800">3.1 Outward taxable supplies</td>
+                <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table31.taxableValue)}</td>
+                <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table31.cgst)}</td>
+                <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table31.sgst)}</td>
+                <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table31.igst)}</td>
+                <td className="text-right py-3 px-4 font-semibold">{formatCurrency(gstr3b.table31.totalTax)}</td>
+              </tr>
+              <tr className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="py-3 px-4 font-medium text-slate-800">3.2 Outward taxable (reverse charge)</td>
+                <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table32.taxableValue)}</td>
+                <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table32.cgst)}</td>
+                <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table32.sgst)}</td>
+                <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table32.igst)}</td>
+                <td className="text-right py-3 px-4 font-semibold">{formatCurrency(gstr3b.table32.totalTax)}</td>
+              </tr>
+              <tr className="border-b border-slate-100 bg-emerald-50/50">
+                <td className="py-3 px-4 font-medium text-emerald-800">4.0 Eligible ITC</td>
+                <td className="text-right py-3 px-4">-</td>
+                <td className="text-right py-3 px-4 text-emerald-700">{formatCurrency(gstr3b.table40.cgst)}</td>
+                <td className="text-right py-3 px-4 text-emerald-700">{formatCurrency(gstr3b.table40.sgst)}</td>
+                <td className="text-right py-3 px-4 text-emerald-700">{formatCurrency(gstr3b.table40.igst)}</td>
+                <td className="text-right py-3 px-4 font-semibold text-emerald-700">{formatCurrency(gstr3b.table40.totalITC)}</td>
+              </tr>
+              <tr className="border-b border-slate-100 bg-amber-50/50">
+                <td className="py-3 px-4 font-medium text-amber-800">4.1 ITC Reversed (Credit Notes)</td>
+                <td className="text-right py-3 px-4">-</td>
+                <td className="text-right py-3 px-4 text-amber-700">{formatCurrency(gstr3b.table41.cgst)}</td>
+                <td className="text-right py-3 px-4 text-amber-700">{formatCurrency(gstr3b.table41.sgst)}</td>
+                <td className="text-right py-3 px-4 text-amber-700">{formatCurrency(gstr3b.table41.igst)}</td>
+                <td className="text-right py-3 px-4 font-semibold text-amber-700">{formatCurrency(gstr3b.table41.totalReversed)}</td>
+              </tr>
+              <tr className="border-b border-slate-100 bg-rose-50/50">
+                <td className="py-3 px-4 font-medium text-rose-800">4.2 ITC Reversed (Debit Notes)</td>
+                <td className="text-right py-3 px-4">-</td>
+                <td className="text-right py-3 px-4 text-rose-700">{formatCurrency(gstr3b.table42.cgst)}</td>
+                <td className="text-right py-3 px-4 text-rose-700">{formatCurrency(gstr3b.table42.sgst)}</td>
+                <td className="text-right py-3 px-4 text-rose-700">{formatCurrency(gstr3b.table42.igst)}</td>
+                <td className="text-right py-3 px-4 font-semibold text-rose-700">{formatCurrency(gstr3b.table42.totalReversed)}</td>
+              </tr>
+              <tr className="border-b border-slate-100 bg-purple-50/50">
+                <td className="py-3 px-4 font-medium text-purple-800">6.1 Interest / Late fee</td>
+                <td className="text-right py-3 px-4">{formatCurrency(gstr3b.table61.taxableValue)}</td>
+                <td className="text-right py-3 px-4 text-purple-700">{formatCurrency(gstr3b.table61.cgst)}</td>
+                <td className="text-right py-3 px-4 text-purple-700">{formatCurrency(gstr3b.table61.sgst)}</td>
+                <td className="text-right py-3 px-4 text-purple-700">{formatCurrency(gstr3b.table61.igst)}</td>
+                <td className="text-right py-3 px-4 font-semibold text-purple-700">{formatCurrency(gstr3b.table61.totalTax)}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-100 border-t-2 border-slate-300">
+                <td className="py-3 px-4 font-bold text-slate-800">Net Tax Liability</td>
+                <td className="text-right py-3 px-4">-</td>
+                <td className="text-right py-3 px-4">-</td>
+                <td className="text-right py-3 px-4">-</td>
+                <td className="text-right py-3 px-4">-</td>
+                <td className={`text-right py-3 px-4 font-bold text-lg ${gstr3b.summary.netPayable < 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  Rs. {formatCurrency(gstr3b.summary.netPayable)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </motion.div>
     );
-  }
+  };
 
   return (
-    <motion.div>
+    <motion.div
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       <div className="max-w-7xl mx-auto px-4 xl:px-8 py-4">
         {/* Header */}
         <motion.div className="mb-6" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.4 }}>
@@ -739,7 +709,7 @@ const renderGSTR3BTable = () => {
                     {viewMode === "month" && <option value="Doughnut">Doughnut Chart</option>}
                   </select>
                 </div>
-                <div style={{ height: isMobile ? "250px" : "300px" }}>
+                <div style={{ height: "300px" }}>
                   {chartType === "Bar" && <Bar data={chartConfig.Bar} options={chartOptions} />}
                   {chartType === "Line" && <Line data={chartConfig.Line} options={chartOptions} />}
                   {chartType === "Doughnut" && <Doughnut data={chartConfig.Doughnut} options={chartOptions} />}
@@ -822,6 +792,5 @@ const renderGSTR3BTable = () => {
     </motion.div>
   );
 };
-
 
 export default GSTDashboard;

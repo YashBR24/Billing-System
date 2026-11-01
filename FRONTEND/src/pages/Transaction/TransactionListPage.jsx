@@ -14,6 +14,7 @@ import {
 import TransactionService from '../../services/TransactionService';
 import CompanyService from '../../services/CompanyService';
 import WorkerService from '../../services/WorkerService';
+import DashboardService from '../../services/DashboardService';
 import BillService from '../../services/BillService';
 import PurchaseService from '../../services/PurchaseService';
 import InterestNoteService from '../../services/InterestNoteService';
@@ -31,6 +32,7 @@ const TransactionListPage = () => {
   const [topTransactions, setTopTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [overallSummary, setOverallSummary] = useState(null);
   const [filteredPeriodSummary, setFilteredPeriodSummary] = useState({ filteredTotalIn: 0, filteredTotalOut: 0 });
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
@@ -127,17 +129,18 @@ const TransactionListPage = () => {
     const fetchInitialData = async () => {
       setIsLoadingSummary(true);
       try {
-        const companyRes = await CompanyService.getAllCompanies();
+        const [companyRes, workerRes, overallSummaryRes] = await Promise.all([
+          CompanyService.getAllCompanies(),
+          WorkerService.getAllWorkers(),
+          DashboardService.getAccountSummary()
+        ]);
         setCompanies(companyRes.data);
-      } catch (error) {
-        console.error('Failed to load companies', error);
-      }
-      try {
-        const workerRes = await WorkerService.getAllWorkers();
         setWorkers(workerRes.data);
+        setOverallSummary(overallSummaryRes.data);
       } catch (error) {
-        console.error('Failed to load workers', error);
-      }
+          console.error('Failed to load initial page data', error);
+          setError("Failed to load initial page data.");
+        }
       setIsLoadingSummary(false);
     };
     fetchInitialData();
@@ -453,14 +456,6 @@ const TransactionListPage = () => {
     } else {
       setFormData(prev => ({ ...prev, amount: '', description: '' }));
     }
-  };
-
-  const getSelectedTotalDue = () => {
-    if (formData.category !== 'BillPayment' || formData.type !== 'IN' || !formData.companyId) return 0;
-    return (formData.relatedBillIds || []).reduce((sum, id) => {
-      const bill = pendingBills.find((b) => b._id === id);
-      return sum + (bill ? (bill.totalAmount - (bill.totalPaidAmount || 0)) : 0);
-    }, 0);
   };
 
   const validateForm = () => {
@@ -813,18 +808,6 @@ const StatCard = ({ title, value, icon, gradient = 'from-slate-500 to-slate-600'
               <motion.div className="mt-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.9 }}>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">Link Sales Bills</label>
                 <p className="text-sm text-gray-500 mb-3">Select the bills this payment covers. The amount will be automatically calculated to fully cover the selected bills.</p>
-                {(() => {
-                  const selectedDue = getSelectedTotalDue();
-                  const enteredAmount = parseFloat(formData.amount);
-                  if (selectedDue > 0 && !isNaN(enteredAmount) && enteredAmount > 0 && enteredAmount < selectedDue - 0.005) {
-                    return (
-                      <p className="mb-3 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                        Payment amount (₹{enteredAmount.toFixed(2)}) is less than the selected bills' total due (₹{selectedDue.toFixed(2)}). Bills are settled oldest-first — older bills get cleared fully and the NEWEST selected bill takes the remaining due.
-                      </p>
-                    );
-                  }
-                  return null;
-                })()}
                 <div className="bg-white/50 border border-gray-200 rounded-xl overflow-hidden">
                   <select multiple name="relatedBillIds" value={formData.relatedBillIds} onChange={(e) => handleMultiSelectChange(e, 'relatedBillIds')} className="w-full h-48 border-0 focus:ring-0 text-sm p-0">
                     {pendingBills.map(bill => (

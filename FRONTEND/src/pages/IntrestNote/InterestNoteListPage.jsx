@@ -82,6 +82,8 @@ const InterestNoteListPage = () => {
 
   // Create form – step 1
   const [create_companyId, setCreateCompanyId]         = useState("");
+  const [create_financialYear, setCreateFinancialYear] = useState("");
+  const [create_fyOptions, setCreateFyOptions]         = useState([]);
 
   // Create form – step 2
   const [create_interestNoteNumber, setCreateInterestNoteNumber]           = useState("");
@@ -90,7 +92,6 @@ const InterestNoteListPage = () => {
   const [create_billId, setCreateBillId]                                   = useState("");
   const [create_lateBills, setCreateLateBills]                             = useState([]);
   const [create_lateBillsLoading, setCreateLateBillsLoading]               = useState(false);
-  const [create_filterFY, setCreateFilterFY]                             = useState("");
 
   // Create form – step 3 (interest rate + preview)
   const [create_monthlyRate, setCreateMonthlyRate]       = useState("");
@@ -112,49 +113,12 @@ const InterestNoteListPage = () => {
   const [edit_status, setEditStatus]                        = useState("Pending");
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
-useEffect(() => {
-  CompanyService.getAllCompanies()
-    .then((r) => {
-      const filteredCompanies = r.data.filter(
-        (company) =>
-          company.companyType === "Seller" ||
-          company.companyType === "Both"
-      );
-
-      setCompanies(filteredCompanies);
-    })
-    .catch((e) => console.error("Failed to fetch companies:", e));
-
-  setCreateFilterFY(getCurrentFY());
-}, []);
-
-  const getFYFromDate = (dateStr) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    const month = d.getMonth();
-    const year = d.getFullYear();
-    if (month >= 3) return `${year}-${String(year + 1).slice(-2)}`;
-    return `${year - 1}-${String(year).slice(-2)}`;
-  };
-
-  const getCurrentFY = () => {
-    const d = new Date();
-    const month = d.getMonth();
-    const year = d.getFullYear();
-    if (month >= 3) return `${year}-${String(year + 1).slice(-2)}`;
-    return `${year - 1}-${String(year).slice(-2)}`;
-  };
-
-  const buildFYOptions = (yearsBack = 4, yearsForward = 1) => {
-    const currentYear = new Date().getFullYear();
-    const options = [];
-    for (let i = -yearsBack; i <= yearsForward; i++) {
-      const y = currentYear + i;
-      const fy = `${y}-${String((y + 1) % 100).padStart(2, "0")}`;
-      options.push(fy);
-    }
-    return options;
-  };
+  useEffect(() => {
+    CompanyService.getAllCompanies()
+      .then((r) => setCompanies(r.data))
+      .catch((e) => console.error("Failed to fetch companies:", e));
+    setCreateFyOptions(InterestNoteService.getFinancialYearOptions(3));
+  }, []);
 
   // ── Responsive ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -268,6 +232,7 @@ useEffect(() => {
     setCreateSuccessMessage("");
     setCreateFormErrors({});
     setCreateCompanyId("");
+    setCreateFinancialYear(InterestNoteService.getFinancialYear());
     setCreateInterestNoteNumber("");
     setCreateInterestNoteDate(new Date().toISOString().split("T")[0]);
     setCreateBillId("");
@@ -280,7 +245,6 @@ useEffect(() => {
     setCreateIgstPct("18");
     setCreateJobCgstPct("9");
     setCreateJobSgstPct("9");
-    setCreateFilterFY(getCurrentFY());
     setIsCreateOpen(true);
   };
 
@@ -314,7 +278,7 @@ useEffect(() => {
     if (!companyId) return;
     try {
       setCreateLateBillsLoading(true);
-      const res = await InterestNoteService.getLatePaidBillsByCompany(companyId, create_filterFY);
+      const res = await InterestNoteService.getLatePaidBillsByCompany(companyId, create_financialYear);
       setCreateLateBills(res.data);
     } catch (err) {
       console.error("Failed to fetch late bills:", err);
@@ -322,10 +286,30 @@ useEffect(() => {
     } finally {
       setCreateLateBillsLoading(false);
     }
-    const fy = getFYFromDate(create_interestNoteDate);
-    await refreshNoteNumber(fy);
+    await refreshNoteNumber(create_financialYear);
   };
 
+  // Step C: FY changes → refresh bills + note number
+  const handleFinancialYearChange = async (fy) => {
+    setCreateFinancialYear(fy);
+    setCreateBillId("");
+    setCreateSelectedBill(null);
+    setCreateInterestNoteNumber("");
+    await refreshNoteNumber(fy);
+    if (create_companyId) {
+      try {
+        setCreateLateBillsLoading(true);
+        const res = await InterestNoteService.getLatePaidBillsByCompany(create_companyId, fy);
+        setCreateLateBills(res.data);
+      } catch (err) {
+        console.error("Failed to fetch late bills:", err);
+      } finally {
+        setCreateLateBillsLoading(false);
+      }
+    }
+  };
+
+  // Step D: bill selected → store enriched bill data
   const handleBillSelection = (billId) => {
     setCreateBillId(billId);
     const found = create_lateBills.find((b) => b._id === billId);
@@ -348,6 +332,7 @@ useEffect(() => {
   const validateCreateForm = () => {
     const errs = {};
     if (!create_companyId)            errs.companyId           = "Company is required.";
+    if (!create_financialYear)        errs.financialYear       = "Financial year is required.";
     if (!create_interestNoteNumber.trim()) errs.interestNoteNumber = "Interest note number is required.";
     if (!create_interestNoteDate)     errs.interestNoteDate    = "Date is required.";
     if (!create_billId)               errs.billId              = "Please select a late-paid bill.";
@@ -368,6 +353,7 @@ useEffect(() => {
     const payload = {
       companyId:          create_companyId,
       billId:             create_billId,
+      financialYear:      create_financialYear,
       interestNoteNumber: create_interestNoteNumber,
       interestNoteDate:   create_interestNoteDate,
       monthlyInterestRate: parseFloat(create_monthlyRate),
@@ -1162,28 +1148,49 @@ useEffect(() => {
 
                 <form onSubmit={handleCreateSubmit} className="space-y-5">
 
-                  {/* ── STEP 1: Company ── */}
+                  {/* ── STEP 1: Company + FY ── */}
                   <div className="border border-indigo-100 bg-indigo-50/40 rounded-xl p-4">
                     <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-3 flex items-center gap-1">
-                      <Building2 className="h-3.5 w-3.5" /> Step 1 — Select Company
+                      <Building2 className="h-3.5 w-3.5" /> Step 1 — Select Company &amp; Financial Year
                     </p>
-                    <div>
-                      <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1">
-                        Company <span className="text-rose-500">*</span>
-                      </label>
-                      <select
-                        value={create_companyId}
-                        onChange={(e) => handleCompanyChange(e.target.value)}
-                        className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
-                          createFormErrors.companyId ? "border-rose-400 bg-rose-50" : "border-gray-200"
-                        }`}
-                      >
-                        <option value="">— Select Company —</option>
-                        {companies.map((c) => (
-                          <option key={c._id} value={c._id}>{c.name}</option>
-                        ))}
-                      </select>
-                      {createFormErrors.companyId && <p className="text-xs text-rose-600 mt-1">{createFormErrors.companyId}</p>}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1">
+                          Company <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={create_companyId}
+                          onChange={(e) => handleCompanyChange(e.target.value)}
+                          className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
+                            createFormErrors.companyId ? "border-rose-400 bg-rose-50" : "border-gray-200"
+                          }`}
+                        >
+                          <option value="">— Select Company —</option>
+                          {companies.map((c) => (
+                            <option key={c._id} value={c._id}>{c.name}</option>
+                          ))}
+                        </select>
+                        {createFormErrors.companyId && <p className="text-xs text-rose-600 mt-1">{createFormErrors.companyId}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1">
+                          Financial Year <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={create_financialYear}
+                          onChange={(e) => handleFinancialYearChange(e.target.value)}
+                          className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
+                            createFormErrors.financialYear ? "border-rose-400 bg-rose-50" : "border-gray-200"
+                          }`}
+                        >
+                          <option value="">— Select FY —</option>
+                          {create_fyOptions.map((fy) => (
+                            <option key={fy} value={fy}>{fy}</option>
+                          ))}
+                        </select>
+                        {createFormErrors.financialYear && <p className="text-xs text-rose-600 mt-1">{createFormErrors.financialYear}</p>}
+                      </div>
                     </div>
                   </div>
 
@@ -1206,7 +1213,7 @@ useEffect(() => {
                         <input
                           value={create_interestNoteNumber}
                           onChange={(e) => setCreateInterestNoteNumber(e.target.value)}
-                          placeholder={create_interestNoteNumberLoading ? "Generating…" : `e.g. ${getFYFromDate(create_interestNoteDate) || "2025-26"}/IN/01`}
+                          placeholder={create_interestNoteNumberLoading ? "Generating…" : `e.g. ${create_financialYear || "2025-26"}/IN/01`}
                           className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
                             createFormErrors.interestNoteNumber ? "border-rose-400 bg-rose-50" : "border-gray-200"
                           }`}
@@ -1222,93 +1229,52 @@ useEffect(() => {
                         <input
                           type="date"
                           value={create_interestNoteDate}
-                          onChange={(e) => {
-                            const newDate = e.target.value;
-                            setCreateInterestNoteDate(newDate);
-                            const fy = getFYFromDate(newDate);
-                            refreshNoteNumber(fy);
-                          }}
+                          onChange={(e) => setCreateInterestNoteDate(e.target.value)}
                           className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
                             createFormErrors.interestNoteDate ? "border-rose-400 bg-rose-50" : "border-gray-200"
                           }`}
                         />
                         {createFormErrors.interestNoteDate && <p className="text-xs text-rose-600 mt-1">{createFormErrors.interestNoteDate}</p>}
-                        {getFYFromDate(create_interestNoteDate) && (
-                          <span className="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-indigo-50 text-indigo-700 rounded-md border border-indigo-200">
-                            FY: {getFYFromDate(create_interestNoteDate)}
-                          </span>
-                        )}
                       </div>
 
-                      {/* FY Filter for Bills */}
+                      {/* Late-paid bill dropdown */}
                       <div>
                         <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1">
-                          Financial Year <span className="text-rose-500">*</span>
+                          Late-Paid Bill <span className="text-rose-500">*</span>
+                          {create_lateBillsLoading && (
+                            <RefreshCw className="inline ml-2 h-3 w-3 animate-spin text-indigo-500" />
+                          )}
                         </label>
                         <select
-                          value={create_filterFY}
-                          onChange={(e) => setCreateFilterFY(e.target.value)}
-                          className="mt-1 text-black block w-full p-2 text-xs lg:text-sm border border-gray-200 rounded-lg"
+                          value={create_billId}
+                          onChange={(e) => handleBillSelection(e.target.value)}
+                          disabled={!create_companyId || create_lateBillsLoading}
+                          className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
+                            createFormErrors.billId ? "border-rose-400 bg-rose-50" : "border-gray-200"
+                          } disabled:bg-gray-100 disabled:cursor-not-allowed`}
                         >
-                          {buildFYOptions().map((fy) => (
-                            <option key={fy} value={fy}>{fy}</option>
+                          <option value="">
+                            {!create_companyId
+                              ? "Select company first"
+                              : create_lateBillsLoading
+                              ? "Loading…"
+                              : create_lateBills.length === 0
+                              ? "No late-paid bills found"
+                              : "— Select Late-Paid Bill —"}
+                          </option>
+                          {create_lateBills.map((bill) => (
+                            <option key={bill._id} value={bill._id}>
+                              #{bill.billNumber} — {formatDisplayDate(bill.billDate)} — ₹{bill.totalAmount?.toFixed(2)} [{bill.lateDays} days late]
+                            </option>
                           ))}
                         </select>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (create_companyId) {
-                              setCreateLateBillsLoading(true);
-                              InterestNoteService.getLatePaidBillsByCompany(create_companyId, create_filterFY)
-                                .then((r) => setCreateLateBills(r.data))
-                                .catch((e) => console.error("Failed to fetch:", e))
-                                .finally(() => setCreateLateBillsLoading(false));
-                            }
-                          }}
-                          className="mt-1 px-3 py-1 text-xs bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-                        >
-                          Load Bills
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Late-paid bill dropdown */}
-                    <div>
-                      <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1">
-                        Late-Paid Bill <span className="text-rose-500">*</span>
-                        {create_lateBillsLoading && (
-                          <RefreshCw className="inline ml-2 h-3 w-3 animate-spin text-indigo-500" />
+                        {createFormErrors.billId && <p className="text-xs text-rose-600 mt-1">{createFormErrors.billId}</p>}
+                        {create_companyId && !create_lateBillsLoading && create_lateBills.length === 0 && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            No paid bills with late payment found for this company &amp; FY.
+                          </p>
                         )}
-                      </label>
-                      <select
-                        value={create_billId}
-                        onChange={(e) => handleBillSelection(e.target.value)}
-                        disabled={!create_companyId || create_lateBillsLoading}
-                        className={`mt-1 text-black block w-full p-2 text-xs lg:text-sm border rounded-lg ${
-                          createFormErrors.billId ? "border-rose-400 bg-rose-50" : "border-gray-200"
-                        } disabled:bg-gray-100 disabled:cursor-not-allowed`}
-                      >
-                        <option value="">
-                          {!create_companyId
-                            ? "Select company first"
-                            : create_lateBillsLoading
-                            ? "Loading…"
-                            : create_lateBills.length === 0
-                            ? "No late-paid bills found"
-                            : "— Select Late-Paid Bill —"}
-                        </option>
-                        {create_lateBills.map((bill) => (
-                          <option key={bill._id} value={bill._id}>
-                            #{bill.billNumber} — {formatDisplayDate(bill.billDate)} — ₹{bill.totalAmount?.toFixed(2)} [{bill.lateDays} days late]
-                          </option>
-                        ))}
-                      </select>
-                      {createFormErrors.billId && <p className="text-xs text-rose-600 mt-1">{createFormErrors.billId}</p>}
-                      {create_companyId && !create_lateBillsLoading && create_lateBills.length === 0 && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          No paid bills with late payment found for this company.
-                        </p>
-                      )}
+                      </div>
                     </div>
 
                     {/* Selected bill info card */}

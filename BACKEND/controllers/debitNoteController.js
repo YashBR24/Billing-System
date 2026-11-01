@@ -8,8 +8,6 @@ const fs         = require('fs');
 const path       = require('path');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 
-const { getOrgDetails } = require('../utils/orgDetails');
-
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: Determine financial year string from a date
 // e.g. April 2025 → March 2026  →  "2025-26"
@@ -29,12 +27,11 @@ const getFinancialYear = (date = new Date()) => {
 // HELPER: Generate next debit note number for a given financial year
 // Format: 2025-26/DN01, 2025-26/DN02 … resets every financial year
 // ─────────────────────────────────────────────────────────────────────────────
-const generateDebitNoteNumber = async (financialYear, organizationId) => {
+const generateDebitNoteNumber = async (financialYear) => {
   const prefix   = `${financialYear}/DN`;
   const escaped  = prefix.replace(/-/g, '\\-').replace(/\//g, '\\/');
   const lastNote = await DebitNote.findOne({
     debitNoteNumber: { $regex: `^${escaped}` },
-    organizationId,
   }).sort({ debitNoteNumber: -1 });
 
   let nextSeq = 1;
@@ -151,7 +148,7 @@ const amountToWords = number => {
 const getNextDebitNoteNumber = async (req, res) => {
   try {
     const financialYear = req.query.financialYear || getFinancialYear();
-    const nextNumber    = await generateDebitNoteNumber(financialYear, req.organizationId);
+    const nextNumber    = await generateDebitNoteNumber(financialYear);
     log(`Next debit note number preview: ${nextNumber} (FY ${financialYear})`, 'info');
     res.json({ debitNoteNumber: nextNumber, financialYear });
   } catch (error) {
@@ -176,7 +173,6 @@ const getUnpaidPurchasesByCompany = async (req, res) => {
   try {
     const query = {
       supplierCompany: companyId,
-      organizationId: req.organizationId,
       // Only purchases that still owe money
       paymentStatus: { $in: ['Unpaid', 'Partially Paid'] },
       // Exclude purchases already linked to a debit note
@@ -281,7 +277,7 @@ const createDebitNote = async (req, res) => {
 
     // ── Auto-generate or validate debit note number ───────────────────────────
     if (!debitNoteNumber) {
-      debitNoteNumber = await generateDebitNoteNumber(resolvedFY, req.organizationId);
+      debitNoteNumber = await generateDebitNoteNumber(resolvedFY);
     } else {
       const expectedPrefix = `${resolvedFY}/DN`;
       if (!debitNoteNumber.startsWith(expectedPrefix)) {
@@ -313,6 +309,16 @@ const createDebitNote = async (req, res) => {
     if (!['Unpaid', 'Partially Paid'].includes(purchaseStatus)) {
       return res.status(400).json({
         message: `Cannot create debit note for a purchase with status "${purchaseStatus}". Only Unpaid or Partially Paid purchases are allowed.`,
+      });
+    }
+
+    // ── Validate purchase belongs to selected financial year ──────────────────
+    const purchaseFY =
+      purchase.financialYear || getFinancialYear(purchase.purchaseBillDate);
+
+    if (purchaseFY !== resolvedFY) {
+      return res.status(400).json({
+        message: `The selected purchase belongs to FY ${purchaseFY}, but the debit note is for FY ${resolvedFY}. Please select a matching financial year.`,
       });
     }
 
@@ -375,7 +381,7 @@ const createDebitNote = async (req, res) => {
     // Purchase model uses simple cgst/sgst flat amounts, not percentages.
     // We derive the tax TYPE from Settings defaults; the percentages come from
     // either the purchase fields (if they exist) or Settings.
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings();
 
     // Determine taxType: if purchase stores taxType field use it, else default CGST_SGST
     const taxType = purchase.taxType || 'CGST_SGST';
@@ -431,7 +437,6 @@ const createDebitNote = async (req, res) => {
       status:            'Pending',
       stockAdjusted:     false,
       createdBy:         req.user._id,
-      organizationId:    req.organizationId,
     });
 
     const savedDebitNote = await newDebitNote.save();
@@ -471,7 +476,7 @@ const createDebitNote = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getDebitNotes = async (req, res) => {
   const { companyId, startDate, endDate, status, financialYear } = req.query;
-  const query = { organizationId: req.organizationId };
+  const query = {};
 
   if (companyId)     query.supplierCompany = companyId;
   if (status)        query.status          = status;
@@ -513,7 +518,7 @@ const getDebitNotes = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getDebitNoteById = async (req, res) => {
   try {
-    const debitNote = await DebitNote.findOne({ _id: req.params.id, organizationId: req.organizationId })
+    const debitNote = await DebitNote.findById(req.params.id)
       .populate('supplierCompany',  'name address gstNumber mobileNumber')
       .populate('originalPurchase', 'purchaseBillNumber purchaseBillDate amount purchaseType')
       .populate('createdBy',        'username email');
@@ -545,10 +550,6 @@ const updateDebitNote = async (req, res) => {
     if (!debitNote) {
       log(`Debit note update failed: Not found with ID: ${debitNoteId}`, 'warn');
       return res.status(404).json({ message: 'Debit note not found.' });
-    }
-
-    if (debitNote.organizationId && String(debitNote.organizationId) !== String(req.organizationId)) {
-      return res.status(403).json({ message: 'Access denied. This resource does not belong to your organization.' });
     }
 
     if (status        !== undefined) debitNote.status        = status;
@@ -583,10 +584,6 @@ const deleteDebitNote = async (req, res) => {
       return res.status(404).json({ message: 'Debit note not found.' });
     }
 
-    if (debitNote.organizationId && String(debitNote.organizationId) !== String(req.organizationId)) {
-      return res.status(403).json({ message: 'Access denied. This resource does not belong to your organization.' });
-    }
-
     // Remove back-link from the original purchase
     if (debitNote.originalPurchase) {
       await Purchase.findByIdAndUpdate(
@@ -613,8 +610,7 @@ const deleteDebitNote = async (req, res) => {
 const generateDebitNotePdf = async (req, res) => {
   const debitNoteId = req.params.id;
   try {
-    const org = await getOrgDetails(req.organizationId);
-    const debitNote = await DebitNote.findOne({ _id: debitNoteId, organizationId: req.organizationId })
+    const debitNote = await DebitNote.findById(debitNoteId)
       .populate('supplierCompany',  'name address gstNumber mobileNumber')
       .populate('originalPurchase', 'purchaseBillNumber purchaseBillDate');
 
@@ -710,17 +706,17 @@ const generateDebitNotePdf = async (req, res) => {
 
     y -= Math.max(ganeshH, debitInvH) + 18;
 
-    y -= drawTextAndMeasureHeight(org.name, leftMargin, y, {
+    y -= drawTextAndMeasureHeight('MAHADEV FILAMENTS', leftMargin, y, {
       font: boldFont, size: 25, align: 'center', color: rgb(0.1, 0.3, 0.5),
     });
 
     y -= drawTextAndMeasureHeight(
-      org.address,
+      'BLOCK NO - 15, 1ST FLOOR, AMBIKA VIBHAG - 2, NEAR NAVJIVAN CIRCLE, U.M. ROAD, SURAT - 395007',
       leftMargin, y + 14,
       { size: 9, align: 'center', maxWidth: contentWidth, spacingAfter: 4 }
     );
 
-    const companyGSTIN    = org.gstin;
+    const companyGSTIN    = '24ABEFM9966E1ZZ';
     const companyStateCode = companyGSTIN.substring(0, 2);
     y -= drawTextAndMeasureHeight(
       `GSTIN: ${companyGSTIN}     STATE CODE: ${companyStateCode}`,
@@ -907,12 +903,12 @@ const generateDebitNotePdf = async (req, res) => {
     const bankMaxWidth = contentWidth * 0.5;
 
     y -= drawTextAndMeasureHeight('Bank Details:', leftMargin, y, { font: boldFont, size: 12, spacingAfter: 4 });
-    y -= drawTextAndMeasureHeight(`Bank Name: ${org.bankName}`,     leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
-    y -= drawTextAndMeasureHeight(`Account Name: ${org.accountName}`,    leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
-    y -= drawTextAndMeasureHeight(`Account No.: ${org.accountNo}`,        leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
-    y -= drawTextAndMeasureHeight(`IFSC Code: ${org.ifsc}`,             leftMargin, y, { size: 10, spacingAfter: 10, maxWidth: bankMaxWidth });
+    y -= drawTextAndMeasureHeight('Bank Name: Prime Bank of India',     leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
+    y -= drawTextAndMeasureHeight('Account Name: Mahadev Filaments',    leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
+    y -= drawTextAndMeasureHeight('Account No.: 10062001003372',        leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
+    y -= drawTextAndMeasureHeight('IFSC Code: PMEC0100607',             leftMargin, y, { size: 10, spacingAfter: 10, maxWidth: bankMaxWidth });
 
-    const forCoText = `For ${org.name}`;
+    const forCoText = 'For MAHADEV FILAMENTS';
     const forCoSize = 11;
     const forCoW    = boldFont.widthOfTextAtSize(forCoText, forCoSize);
     let   declY     = y;
@@ -944,7 +940,7 @@ const generateDebitNotePdf = async (req, res) => {
     // ─────────────────────────────────────────────────────────────────────────
     const footerY = 30;
     page.drawRectangle({ x: leftMargin, y: footerY - 8, width: contentWidth, height: 20, color: rgb(0.1, 0.3, 0.5), opacity: 0.1 });
-    const contactText = `Contact: ${org.contactPerson} | Phone: ${org.phone} | Email: ${org.email}`;
+    const contactText = 'Contact: Bharat Radiya | Phone: 9825492079 | Email: mahadevfilaments@gmail.com';
     const contactW    = font.widthOfTextAtSize(contactText, 9);
     drawTextAndMeasureHeight(
       contactText,

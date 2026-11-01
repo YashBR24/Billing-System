@@ -2,7 +2,6 @@ const Box = require('../models/Box');
 const Counter = require('../models/Counter');
 const Settings = require('../models/Settings');
 const { log } = require('../middleware/logger');
-const { getOrgDetails } = require('../utils/orgDetails');
 const mongoose = require('mongoose');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
@@ -26,7 +25,7 @@ const getNextBoxNumber = async (req, res) => {
     }
     const fy = financialYear;
     const trimmedDesc = descriptionOfGoods.trim();
-    const counterId = `${req.organizationId}_${trimmedDesc}_${fy}`;
+    const counterId = `${trimmedDesc}_${fy}`;
     const counter = await Counter.findOne({ _id: counterId });
     const nextNum = counter ? counter.sequenceValue + 1 : 1;
     const boxNumber = `${fy}/${String(nextNum).padStart(3, '0')}`;
@@ -37,12 +36,12 @@ const getNextBoxNumber = async (req, res) => {
   }
 };
 
-const getNextSequence = async (description, financialYear, organizationId) => {
-  const counterId = `${organizationId}_${description.trim()}_${financialYear}`;
+const getNextSequence = async (description, financialYear) => {
+  const counterId = `${description.trim()}_${financialYear}`;
   const counter = await Counter.findOneAndUpdate(
     { _id: counterId },
     { $inc: { sequenceValue: 1 } },
-    { new: true, upsert: true, setDefaultsOnInsert: { sequenceValue: 0, description: description.trim(), financialYear, organizationId } }
+    { new: true, upsert: true, setDefaultsOnInsert: { sequenceValue: 0, description: description.trim(), financialYear } }
   );
   return counter.sequenceValue;
 };
@@ -59,15 +58,11 @@ const getFinancialYearRange = (fy) => {
 };
 
 const buildQueryFilters = async (filters) => {
-  const { descriptionOfGoods, isUsed, search, startDate, endDate, fy, organizationId } = filters;
+  const { descriptionOfGoods, isUsed, search, startDate, endDate, fy } = filters;
   const query = {};
 
-  if (organizationId) {
-    query.organizationId = organizationId;
-  }
-
   if (descriptionOfGoods && descriptionOfGoods !== 'All Descriptions') {
-    const settings = await Settings.getSettings(organizationId);
+    const settings = await Settings.getSettings();
     const validDescription = settings.itemConfigurations.some(item => item.description === descriptionOfGoods);
     if (!validDescription) {
       throw new Error('Invalid description of goods.');
@@ -180,7 +175,7 @@ const createBox = async (req, res) => {
   }
 
   try {
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings();
     const validDescription = settings.itemConfigurations.some(item => item.description === descriptionOfGoods);
     if (!validDescription) {
       return res.status(400).json({ message: 'Description of Goods must be from predefined settings.' });
@@ -189,7 +184,7 @@ const createBox = async (req, res) => {
     const resolvedFY = financialYear || getFinancialYear(boxDate ? new Date(boxDate) : new Date());
     const trimmedDesc = descriptionOfGoods.trim();
 
-    const displayNumber = await getNextSequence(trimmedDesc, resolvedFY, req.organizationId);
+    const displayNumber = await getNextSequence(trimmedDesc, resolvedFY);
     const finalBoxNumber = `${resolvedFY}/${String(displayNumber).padStart(3, '0')}`;
 
     const newBox = new Box({
@@ -202,7 +197,6 @@ const createBox = async (req, res) => {
       cops,
       copsWeight: copsWeight ?? 0,
       createdBy: req.user._id,
-      organizationId: req.organizationId,
       financialYear: resolvedFY,
       createdAt: boxDate ? new Date(boxDate) : new Date(),
     });
@@ -226,7 +220,7 @@ const getBoxes = async (req, res) => {
   const { descriptionOfGoods, isUsed, search, startBox, endBox, startDate, endDate, fy } = req.query;
 
   try {
-    const filters = { descriptionOfGoods, isUsed, search, startBox, endBox, startDate, endDate, fy, organizationId: req.organizationId };
+    const filters = { descriptionOfGoods, isUsed, search, startBox, endBox, startDate, endDate, fy };
     const boxes = await fetchFilteredBoxes(filters, true);
 
     log(`Fetched ${boxes.length} boxes with filters ${JSON.stringify(filters)}`, 'info');
@@ -247,17 +241,15 @@ const generateBoxesPDF = async (req, res) => {
     let boxes;
     if (boxNumbers && String(boxNumbers).trim()) {
       const boxNumberArray = String(boxNumbers).split(',').map(num => num.trim());
-      boxes = await Box.find({ boxNumber: { $in: boxNumberArray }, organizationId: req.organizationId }).sort({ boxNumber: 1 });
+      boxes = await Box.find({ boxNumber: { $in: boxNumberArray } }).sort({ boxNumber: 1 });
     } else {
-      const filters = { descriptionOfGoods, isUsed, search, startBox, endBox, startDate, endDate, fy, organizationId: req.organizationId };
+      const filters = { descriptionOfGoods, isUsed, search, startBox, endBox, startDate, endDate, fy };
       boxes = await fetchFilteredBoxes(filters, false);
     }
 
-    const org = await getOrgDetails(req.organizationId);
-    const copsLabel = org.terminology?.copsLabel || 'Cops';
     const totalNetWeight = boxes.reduce((sum, box) => sum + (box.netWeight || 0), 0);
 
-    generatePDFResponse(res, boxes, totalNetWeight, { boxNumbers, descriptionOfGoods, isUsed, search, startBox, endBox, startDate, endDate, fy }, copsLabel);
+    generatePDFResponse(res, boxes, totalNetWeight, { boxNumbers, descriptionOfGoods, isUsed, search, startBox, endBox, startDate, endDate, fy });
     
     log(`PDF generated with ${boxes.length} boxes and total net weight ${totalNetWeight.toFixed(2)}`, 'info');
   } catch (error) {
@@ -269,7 +261,7 @@ const generateBoxesPDF = async (req, res) => {
   }
 };
 
-const generatePDFResponse = (res, boxes, totalNetWeight, filters, copsLabel = 'Cops') => {
+const generatePDFResponse = (res, boxes, totalNetWeight, filters) => {
   const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ margin: 30, size: 'A4' });
   
@@ -283,16 +275,13 @@ const generatePDFResponse = (res, boxes, totalNetWeight, filters, copsLabel = 'C
   
   if (filters.boxNumbers) {
     doc.fontSize(12).font('Helvetica').text(`Selected Boxes: ${String(filters.boxNumbers).split(',').length} boxes`, { align: 'center' });
-  } else if (filters.descriptionOfGoods || filters.isUsed || filters.search || filters.startDate || filters.endDate) {
+  } else if (filters.descriptionOfGoods || filters.isUsed || filters.search || filters.startBox || filters.endBox || filters.fy) {
     doc.fontSize(10).font('Helvetica').text('Filters Applied:', { underline: true });
     if (filters.descriptionOfGoods) doc.text(`Description: ${filters.descriptionOfGoods}`);
     if (filters.isUsed !== '') doc.text(`Status: ${filters.isUsed === 'true' ? 'Used' : 'Available'}`);
     if (filters.search) doc.text(`Search: ${filters.search}`);
-    if (filters.startDate || filters.endDate) {
-      const from = filters.startDate ? new Date(filters.startDate).toLocaleDateString('en-IN') : 'Start';
-      const to = filters.endDate ? new Date(filters.endDate).toLocaleDateString('en-IN') : 'End';
-      doc.text(`Date Range: ${from} to ${to}`);
-    }
+    if (filters.startBox || filters.endBox) doc.text(`Box Range: ${filters.startBox || 'Start'} to ${filters.endBox || 'End'}`);
+    if (filters.fy) doc.text(`Financial Year: ${filters.fy}`);
   }
   
   doc.moveDown();
@@ -306,16 +295,16 @@ const generatePDFResponse = (res, boxes, totalNetWeight, filters, copsLabel = 'C
   const col2X = 120;
   const col3X = 250;
   const col4X = 340;
-  const col5X = 410;
-  const col6X = 480;
+  const col5X = 420;
+  const col6X = 500;
   
   doc.fontSize(10).font('Helvetica-Bold');
   doc.text('Box #', col1X, tableTop);
   doc.text('Description', col2X, tableTop);
-  doc.text('Gross Wt', col3X, tableTop);
-  doc.text('Tare Wt', col4X, tableTop);
-  doc.text('Net Weight', col5X, tableTop);
-  doc.text(copsLabel, col6X, tableTop);
+  doc.text('Net Weight', col3X, tableTop);
+  doc.text('Cops', col4X, tableTop);
+  doc.text('Cops Wt', col5X, tableTop);
+  doc.text('Status', col6X, tableTop);
   
   doc.moveTo(col1X, tableTop + 15).lineTo(550, tableTop + 15).stroke();
   
@@ -329,10 +318,10 @@ const generatePDFResponse = (res, boxes, totalNetWeight, filters, copsLabel = 'C
       doc.fontSize(10).font('Helvetica-Bold');
       doc.text('Box #', col1X, y);
       doc.text('Description', col2X, y);
-      doc.text('Gross Wt', col3X, y);
-      doc.text('Tare Wt', col4X, y);
-      doc.text('Net Weight', col5X, y);
-      doc.text(copsLabel, col6X, y);
+      doc.text('Net Weight', col3X, y);
+      doc.text('Cops', col4X, y);
+      doc.text('Cops Wt', col5X, y);
+      doc.text('Status', col6X, y);
       doc.moveTo(col1X, y + 15).lineTo(550, y + 15).stroke();
       y += 25;
       doc.font('Helvetica').fontSize(9);
@@ -340,10 +329,10 @@ const generatePDFResponse = (res, boxes, totalNetWeight, filters, copsLabel = 'C
     
     doc.text(box.boxNumber || 'N/A', col1X, y);
     doc.text((box.descriptionOfGoods || 'N/A').substring(0, 20), col2X, y);
-    doc.text(`${(box.grossWeight ?? 0).toFixed ? (box.grossWeight).toFixed(2) : box.grossWeight} kg`, col3X, y);
-    doc.text(`${(box.tareWeight ?? 0).toFixed ? (box.tareWeight).toFixed(2) : box.tareWeight} kg`, col4X, y);
-    doc.text(`${box.netWeight?.toFixed ? box.netWeight.toFixed(2) : box.netWeight} kg`, col5X, y);
-    doc.text(box.cops?.toString() || 'N/A', col6X, y);
+    doc.text(`${box.netWeight?.toFixed ? box.netWeight.toFixed(2) : box.netWeight} kg`, col3X, y);
+    doc.text(box.cops?.toString() || 'N/A', col4X, y);
+    doc.text(`${(box.copsWeight ?? 0).toFixed ? box.copsWeight.toFixed(2) : (box.copsWeight ?? 0)} kg`, col5X, y);
+    doc.text(box.isUsed ? 'Used' : 'Available', col6X, y);
     
     y += 20;
     if (index < boxes.length - 1) {
@@ -364,13 +353,13 @@ const getAvailableBoxes = async (req, res) => {
 
     descriptionOfGoods = decodeURIComponent(descriptionOfGoods).replace(/\+/g, ' ').trim();
 
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings();
     const validDescription = settings.itemConfigurations.find(item => item.description === descriptionOfGoods);
     if (!validDescription) {
       return res.status(400).json({ message: 'Invalid description of goods', code: 'INVALID_DESCRIPTION', availableDescriptions: settings.itemConfigurations.map(item => item.description), receivedDescription: descriptionOfGoods });
     }
 
-    const boxes = await Box.find({ descriptionOfGoods, isUsed: false, organizationId: req.organizationId }).sort({ boxNumber: 1 });
+    const boxes = await Box.find({ descriptionOfGoods, isUsed: false }).sort({ boxNumber: 1 });
     res.json(boxes);
   } catch (error) {
     console.error('Error fetching available boxes:', error);
@@ -386,7 +375,7 @@ const getBoxById = async (req, res) => {
   }
 
   try {
-    const box = await Box.findOne({ _id: boxId, organizationId: req.organizationId }).populate('createdBy', 'username email');
+    const box = await Box.findById(boxId).populate('createdBy', 'username email');
 
     if (!box) {
       return res.status(404).json({ message: 'Box not found' });
@@ -404,7 +393,7 @@ const updateBox = async (req, res) => {
   const { boxNumber, descriptionOfGoods, grossWeight, tareWeight, cops, copsWeight } = req.body;
 
   try {
-    const box = await Box.findOne({ _id: boxId, organizationId: req.organizationId });
+    const box = await Box.findById(boxId);
     if (!box) {
       log(`Box update failed: Not found with ID: ${boxId}`, 'warn');
       return res.status(404).json({ message: 'Box not found' });
@@ -415,7 +404,7 @@ const updateBox = async (req, res) => {
     }
 
     if (boxNumber && boxNumber !== box.boxNumber) {
-      const existingBox = await Box.findOne({ boxNumber, organizationId: req.organizationId });
+      const existingBox = await Box.findOne({ boxNumber });
       if (existingBox && existingBox._id.toString() !== boxId) {
         return res.status(400).json({ message: `Box number '${boxNumber}' already exists.` });
       }
@@ -423,7 +412,7 @@ const updateBox = async (req, res) => {
     }
 
     if (descriptionOfGoods) {
-      const settings = await Settings.getSettings(req.organizationId);
+      const settings = await Settings.getSettings();
       const validDescription = settings.itemConfigurations.some(item => item.description === descriptionOfGoods);
       if (!validDescription) {
         return res.status(400).json({ message: 'Description of Goods must be from predefined settings.' });
@@ -453,7 +442,7 @@ const updateBox = async (req, res) => {
 
 const deleteBox = async (req, res) => {
   try {
-    const box = await Box.findOne({ _id: req.params.id, organizationId: req.organizationId });
+    const box = await Box.findById(req.params.id);
     if (!box) {
       log(`Box deletion failed: Not found with ID: ${req.params.id}`, 'warn');
       return res.status(404).json({ message: 'Box not found' });
@@ -479,18 +468,15 @@ const generateBoxesExcel = async (req, res) => {
     let boxes;
     if (boxNumbers && String(boxNumbers).trim()) {
       const boxNumberArray = String(boxNumbers).split(',').map(num => num.trim());
-      boxes = await Box.find({ boxNumber: { $in: boxNumberArray }, organizationId: req.organizationId }).sort({ boxNumber: 1 });
+      boxes = await Box.find({ boxNumber: { $in: boxNumberArray } }).sort({ boxNumber: 1 });
     } else {
-      const filters = { descriptionOfGoods, isUsed, search, startBox, endBox, startDate, endDate, fy, organizationId: req.organizationId };
+      const filters = { descriptionOfGoods, isUsed, search, startBox, endBox, startDate, endDate, fy };
       boxes = await fetchFilteredBoxes(filters, false);
     }
 
     if (!boxes || boxes.length === 0) {
       return res.status(404).json({ message: 'No boxes found matching the criteria' });
     }
-
-    const org = await getOrgDetails(req.organizationId);
-    const copsLabel = org.terminology?.copsLabel || 'Cops';
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Boxes');
@@ -501,8 +487,8 @@ const generateBoxesExcel = async (req, res) => {
       { header: 'Gross Wt (kg)', key: 'grossWeight', width: 14 },
       { header: 'Tare Wt (kg)', key: 'tareWeight', width: 14 },
       { header: 'Net Wt (kg)', key: 'netWeight', width: 14 },
-      { header: copsLabel, key: 'cops', width: 10 },
-      { header: `${copsLabel} Wt (kg)`, key: 'copsWeight', width: 14 },
+      { header: 'Cops', key: 'cops', width: 10 },
+      { header: 'Cops Wt (kg)', key: 'copsWeight', width: 14 },
       { header: 'Status', key: 'status', width: 12 },
       { header: 'Date', key: 'createdAt', width: 14 },
     ];
@@ -541,7 +527,7 @@ const getMonthlyNetWeights = async (req, res) => {
   try {
     const { fy, descriptionOfGoods } = req.query;
 
-    const match = { organizationId: req.organizationId };
+    const match = {};
 
     if (fy) {
       const range = getFinancialYearRange(fy);
@@ -551,7 +537,7 @@ const getMonthlyNetWeights = async (req, res) => {
     }
 
     if (descriptionOfGoods && descriptionOfGoods !== 'All Descriptions') {
-      const settings = await Settings.getSettings(req.organizationId);
+      const settings = await Settings.getSettings();
       const valid = settings.itemConfigurations.some(item => item.description === descriptionOfGoods);
       if (!valid) {
         return res.status(400).json({ message: 'Invalid description of goods.' });
@@ -589,12 +575,12 @@ const updateCounter = async (req, res) => {
     }
 
     const trimmedDesc = descriptionOfGoods.trim();
-    const counterId = `${req.organizationId}_${trimmedDesc}_${financialYear}`;
+    const counterId = `${trimmedDesc}_${financialYear}`;
 
     const counter = await Counter.findOneAndUpdate(
       { _id: counterId },
-      { $set: { sequenceValue: counterValue, description: trimmedDesc, financialYear, organizationId: req.organizationId } },
-      { new: true, upsert: true, setDefaultsOnInsert: { sequenceValue: counterValue, description: trimmedDesc, financialYear, organizationId: req.organizationId } }
+      { $set: { sequenceValue: counterValue, description: trimmedDesc, financialYear } },
+      { new: true, upsert: true, setDefaultsOnInsert: { sequenceValue: counterValue, description: trimmedDesc, financialYear } }
     );
 
     const nextBoxNumber = `${financialYear}/${String(counter.sequenceValue + 1).padStart(3, '0')}`;
@@ -607,46 +593,6 @@ const updateCounter = async (req, res) => {
   }
 };
 
-const getBoxesStats = async (req, res) => {
-  try {
-    const { fy, descriptionOfGoods } = req.query;
-    const match = { organizationId: new mongoose.Types.ObjectId(req.organizationId) };
-
-    if (fy) {
-      match.financialYear = fy;
-    }
-
-    if (descriptionOfGoods && descriptionOfGoods !== 'All Descriptions') {
-      match.descriptionOfGoods = descriptionOfGoods;
-    }
-
-    const result = await Box.aggregate([
-      { $match: match },
-      { $group: {
-        _id: null,
-        total: { $sum: 1 },
-        available: { $sum: { $cond: [{ $eq: ['$isUsed', false] }, 1, 0] } },
-        used: { $sum: { $cond: [{ $eq: ['$isUsed', true] }, 1, 0] } },
-        totalNetWeight: { $sum: '$netWeight' },
-        availableNetWeight: { $sum: { $cond: [{ $eq: ['$isUsed', false] }, '$netWeight', 0] } }
-      }}
-    ]);
-
-    const stats = result[0] || { total: 0, available: 0, used: 0, totalNetWeight: 0, availableNetWeight: 0 };
-
-    res.json({
-      total: stats.total,
-      available: stats.available,
-      used: stats.used,
-      totalNetWeight: parseFloat((stats.totalNetWeight || 0).toFixed(2)),
-      availableNetWeight: parseFloat((stats.availableNetWeight || 0).toFixed(2))
-    });
-  } catch (error) {
-    log(`Error fetching boxes stats: ${error.message}`, 'error');
-    res.status(500).json({ message: 'Error fetching boxes stats.' });
-  }
-};
-
 const getCounter = async (req, res) => {
   try {
     const { financialYear, descriptionOfGoods } = req.query;
@@ -656,7 +602,7 @@ const getCounter = async (req, res) => {
     }
 
     const trimmedDesc = descriptionOfGoods.trim();
-    const counterId = `${req.organizationId}_${trimmedDesc}_${financialYear}`;
+    const counterId = `${trimmedDesc}_${financialYear}`;
     const counter = await Counter.findOne({ _id: counterId });
 
     if (!counter) {
@@ -673,7 +619,6 @@ const getCounter = async (req, res) => {
 module.exports = {
   createBox,
   getBoxes,
-  getBoxesStats,
   getBoxById,
   updateBox,
   deleteBox,

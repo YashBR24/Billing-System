@@ -3,7 +3,6 @@ const router = express.Router();
 const {
   createBox,
   getBoxes,
-  getBoxesStats,
   getBoxById,
   updateBox,
   deleteBox,
@@ -22,10 +21,7 @@ router.use(isAdmin);
 
 router.route('/')
   .post(createBox) 
-  .get(getBoxes);
-
-router.route('/stats')
-  .get(getBoxesStats);
+  .get(getBoxes); 
 
 router.route('/available')
   .get(getAvailableBoxes);

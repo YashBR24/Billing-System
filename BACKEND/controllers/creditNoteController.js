@@ -10,8 +10,6 @@ const fs = require('fs');
 const path = require('path');
 const { PDFDocument, StandardFonts, rgb, PageSizes } = require('pdf-lib');
 
-const { getOrgDetails } = require('../utils/orgDetails');
-
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: Determine financial year string from a date
 // e.g. April 2025 → June 2026  →  "2025-26"
@@ -33,11 +31,11 @@ const getFinancialYear = (date = new Date()) => {
 // HELPER: Generate next credit note number for a given financial year
 // Format: 2025-26/01, 2025-26/02 … reset to /01 each new financial year
 // ─────────────────────────────────────────────────────────────────────────────
-const generateCreditNoteNumber = async (financialYear, organizationId) => {
+const generateCreditNoteNumber = async (financialYear) => {
+  // Find the latest credit note whose number starts with this financial year
   const prefix = `${financialYear}/`;
   const lastNote = await CreditNote.findOne({
     creditNoteNumber: { $regex: `^${prefix.replace('-', '\\-')}` },
-    organizationId,
   }).sort({ creditNoteNumber: -1 });
 
   let nextSeq = 1;
@@ -123,7 +121,7 @@ const calculateCreditNoteTotals = (
 const getNextCreditNoteNumber = async (req, res) => {
   try {
     const financialYear = req.query.financialYear || getFinancialYear();
-    const nextNumber = await generateCreditNoteNumber(financialYear, req.organizationId);
+    const nextNumber = await generateCreditNoteNumber(financialYear);
     res.json({ creditNoteNumber: nextNumber, financialYear });
   } catch (error) {
     log(`Error fetching next credit note number: ${error.message}`, 'error');
@@ -187,7 +185,6 @@ const getUnpaidBillsByCompany = async (req, res) => {
   try {
     const query = {
       company: companyId,
-      organizationId: req.organizationId,
 
       // ✅ use actual bill status field
       status: { $in: ['Pending', 'Partially Paid'] },
@@ -228,6 +225,226 @@ const getUnpaidBillsByCompany = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// @desc   Create a new credit note
+// @route  POST /api/credit-notes
+// @access Private/Admin
+//
+// UPDATED FLOW:
+//  1. Frontend selects company  →  calls GET /api/credit-notes/unpaid-bills?companyId=&financialYear=
+//  2. Frontend selects financial year  →  calls GET /api/credit-notes/next-number?financialYear=
+//  3. Frontend selects unpaid bill from company list
+//  4. Frontend fills remaining fields and POSTs here
+//
+// Body now accepts:
+//   companyId        – selected company (REQUIRED before bill selection)
+//   financialYear    – e.g. "2025-26"  (auto-detected from creditNoteDate if omitted)
+//   creditNoteNumber – can be omitted; auto-generated from financialYear
+//   creditNoteDate   – ISO date string
+//   billId           – selected unpaid bill
+//   returnReason, returnReasonNotes, items, withCops
+// ─────────────────────────────────────────────────────────────────────────────
+// const createCreditNote = async (req, res) => {
+//   let {
+//     companyId,
+//     financialYear,
+//     creditNoteNumber,
+//     creditNoteDate,
+//     billId,
+//     returnReason,
+//     returnReasonNotes,
+//     items,
+//     withCops = false,
+//   } = req.body;
+
+//   // ── Validate required fields ───────────────────────────────────────────────
+//   if (!companyId) {
+//     return res.status(400).json({ message: 'companyId is required. Please select a company first.' });
+//   }
+//   if (!billId) {
+//     return res.status(400).json({ message: 'billId is required. Please select an unpaid bill.' });
+//   }
+//   if (!returnReason) {
+//     return res.status(400).json({ message: 'returnReason is required.' });
+//   }
+//   if (!items || items.length === 0) {
+//     return res.status(400).json({ message: 'At least one item is required.' });
+//   }
+
+//   try {
+//     // ── Verify company exists ─────────────────────────────────────────────────
+//     const company = await Company.findById(companyId);
+//     if (!company) {
+//       return res.status(404).json({ message: 'Company not found.' });
+//     }
+
+//     // ── Resolve financial year ────────────────────────────────────────────────
+//     const resolvedDate = creditNoteDate ? new Date(creditNoteDate) : new Date();
+//     const resolvedFY = financialYear || getFinancialYear(resolvedDate);
+
+//     // ── Auto-generate credit note number if not provided ──────────────────────
+//     if (!creditNoteNumber) {
+//       creditNoteNumber = await generateCreditNoteNumber(resolvedFY);
+//     } else {
+//       // Validate format: must start with the correct FY prefix
+//       const expectedPrefix = `${resolvedFY}/`;
+//       if (!creditNoteNumber.startsWith(expectedPrefix)) {
+//         return res.status(400).json({
+//           message: `creditNoteNumber must follow the format "${expectedPrefix}XX" for financial year ${resolvedFY}.`,
+//         });
+//       }
+//     }
+
+//     // ── Fetch original bill ───────────────────────────────────────────────────
+//     const bill = await Bill.findById(billId)
+//       .populate('company')
+//       .populate('consignee')
+//       .populate('challan');
+
+//     if (!bill) {
+//       log(`Credit note creation failed: Bill not found - ID: ${billId}`, 'warn');
+//       return res.status(404).json({ message: 'Original bill not found.' });
+//     }
+
+//     // ── Ensure bill belongs to the selected company ──────────────────────────
+//     if (String(bill.company._id) !== String(companyId)) {
+//       return res.status(400).json({
+//         message: 'The selected bill does not belong to the selected company.',
+//       });
+//     }
+
+//     // ── Ensure bill is unpaid / partially paid ───────────────────────────────
+//     if (!['Unpaid', 'Partially Paid'].includes(bill.paymentStatus)) {
+//       return res.status(400).json({
+//         message: `Cannot create credit note for a bill with status "${bill.paymentStatus}". Only Unpaid or Partially Paid bills are allowed.`,
+//       });
+//     }
+
+//     // ── Ensure bill is within the selected financial year ────────────────────
+//     const billFY = getFinancialYear(bill.billDate);
+//     if (billFY !== resolvedFY) {
+//       return res.status(400).json({
+//         message: `The selected bill belongs to financial year ${billFY}, but the credit note is for ${resolvedFY}. Please select a matching financial year.`,
+//       });
+//     }
+
+//     // ── Validate items against original bill ─────────────────────────────────
+//     for (const item of items) {
+//       const billItem = bill.items.find(
+//         bi => bi.description === item.description && bi.hsnSacCode === item.hsnSacCode
+//       );
+
+//       if (!billItem) {
+//         return res.status(400).json({
+//           message: `Item "${item.description}" not found in original bill.`,
+//         });
+//       }
+
+//       if (parseFloat(item.quantity) > billItem.quantity) {
+//         return res.status(400).json({
+//           message: `Return quantity for "${item.description}" exceeds billed quantity.`,
+//         });
+//       }
+//     }
+
+//     // ── Snapshots ─────────────────────────────────────────────────────────────
+//     const companyDetailsSnapshot = bill.companyDetailsSnapshot || {
+//       name: bill.company.name,
+//       address: bill.company.address,
+//       gstNumber: bill.company.gstNumber,
+//     };
+
+//     let consigneeDetailsSnapshot = null;
+//     if (bill.isConsigneeDifferent && bill.consigneeDetailsSnapshot) {
+//       consigneeDetailsSnapshot = bill.consigneeDetailsSnapshot;
+//     }
+
+//     // ── Tax rates ─────────────────────────────────────────────────────────────
+//     const settings = await Settings.getSettings();
+//     const cgstRate = bill.cgstPercentage || settings.cgstPercentage;
+//     const sgstRate = bill.sgstPercentage || settings.sgstPercentage;
+//     const igstRate = bill.igstPercentage || settings.igstPercentage;
+//     const jobCgstRate = bill.jobCgstPercentage || settings.jobCgstPercentage;
+//     const jobSgstRate = bill.jobSgstPercentage || settings.jobSgstPercentage;
+
+//     const calculated = calculateCreditNoteTotals(
+//       items,
+//       bill.discountPercentage,
+//       bill.taxType,
+//       cgstRate,
+//       sgstRate,
+//       igstRate,
+//       jobCgstRate,
+//       jobSgstRate
+//     );
+
+//     // ── Create credit note ────────────────────────────────────────────────────
+//     const newCreditNote = new CreditNote({
+//       creditNoteNumber,
+//       financialYear: resolvedFY,           // store FY on the record
+//       creditNoteDate: resolvedDate,
+//       originalBill: billId,
+//       originalBillNumber: bill.billNumber,
+//       challan: bill.challan || null,
+//       challanNumber: bill.challanNumber || '',
+//       company: bill.company._id,
+//       companyDetailsSnapshot,
+//       isConsigneeDifferent: bill.isConsigneeDifferent || false,
+//       consignee: bill.consignee || null,
+//       consigneeDetailsSnapshot,
+//       returnReason,
+//       returnReasonNotes: returnReasonNotes || '',
+//       items: calculated.items,
+//       subTotalAmount: calculated.subTotalAmount,
+//       discountPercentage: bill.discountPercentage,
+//       discountAmount: calculated.discountAmount,
+//       amountAfterDiscount: calculated.amountAfterDiscount,
+//       taxType: bill.taxType,
+//       cgstPercentage: bill.taxType === 'CGST_SGST' ? cgstRate : 0,
+//       cgstAmount: calculated.cgstAmount,
+//       sgstPercentage: bill.taxType === 'CGST_SGST' ? sgstRate : 0,
+//       sgstAmount: calculated.sgstAmount,
+//       igstPercentage: bill.taxType === 'IGST' ? igstRate : 0,
+//       igstAmount: calculated.igstAmount,
+//       jobCgstPercentage: bill.taxType === 'JOBCGST_JOBSGST' ? jobCgstRate : 0,
+//       jobCgstAmount: calculated.jobCgstAmount,
+//       jobSgstPercentage: bill.taxType === 'JOBCGST_JOBSGST' ? jobSgstRate : 0,
+//       jobSgstAmount: calculated.jobSgstAmount,
+//       totalTaxAmount: calculated.totalTaxAmount,
+//       totalAmount: calculated.totalAmount,
+//       amountInWords: amountToWords(calculated.totalAmount) || '',
+//       withCops: withCops || false,
+//       totalCops: bill.totalCops || 0,
+//       status: 'Pending',
+//       stockAdjusted: false,
+//       createdBy: req.user._id,
+//     });
+
+//     const savedCreditNote = await newCreditNote.save();
+
+//     // Link credit note back to bill
+//     bill.creditNote = savedCreditNote._id;
+//     await bill.save();
+
+//     log(
+//       `Credit note created: ${savedCreditNote.creditNoteNumber} (FY ${resolvedFY}) for bill ${bill.billNumber} by ${req.user.email}`,
+//       'info'
+//     );
+//     res.status(201).json(savedCreditNote);
+//   } catch (error) {
+//     log(`Error creating credit note: ${error.message} - Stack: ${error.stack}`, 'error');
+//     if (error.code === 11000 || error.message.includes('duplicate key')) {
+//       return res.status(400).json({
+//         message: `Credit note number '${creditNoteNumber}' already exists.`,
+//       });
+//     }
+//     if (error.name === 'ValidationError') {
+//       return res.status(400).json({ message: error.message });
+//     }
+//     res.status(500).json({ message: 'Server error while creating credit note.' });
+//   }
+// };
+
 const createCreditNote = async (req, res) => {
   let {
     companyId,
@@ -238,6 +455,7 @@ const createCreditNote = async (req, res) => {
     returnReason,
     returnReasonNotes,
     items,
+    withCops = false,
   } = req.body;
 
   // ✅ Required validation
@@ -282,7 +500,7 @@ const createCreditNote = async (req, res) => {
 
     // ✅ Generate note number
     if (!creditNoteNumber) {
-      creditNoteNumber = await generateCreditNoteNumber(resolvedFY, req.organizationId);
+      creditNoteNumber = await generateCreditNoteNumber(resolvedFY);
     } else {
       const expectedPrefix = `${resolvedFY}/`;
       if (!creditNoteNumber.startsWith(expectedPrefix)) {
@@ -319,6 +537,16 @@ const createCreditNote = async (req, res) => {
     ) {
       return res.status(400).json({
         message: `Cannot create credit note for bill status "${billStatus}". Only Pending or Partially Paid bills are allowed.`,
+      });
+    }
+
+    // ✅ Better FY validation
+    const billFY =
+      bill.financialYear || getFinancialYear(bill.billDate);
+
+    if (billFY !== resolvedFY) {
+      return res.status(400).json({
+        message: `Selected bill belongs to FY ${billFY}, but credit note FY is ${resolvedFY}.`,
       });
     }
 
@@ -364,7 +592,7 @@ const createCreditNote = async (req, res) => {
         : null;
 
     // ✅ Tax settings
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings();
 
     const cgstRate =
       bill.cgstPercentage || settings.cgstPercentage;
@@ -435,10 +663,11 @@ const createCreditNote = async (req, res) => {
       totalAmount: calculated.totalAmount,
       amountInWords:
         amountToWords(calculated.totalAmount) || '',
+      withCops,
+      totalCops: bill.totalCops || 0,
       status: 'Pending',
       stockAdjusted: false,
       createdBy: req.user._id,
-      organizationId: req.organizationId,
     });
 
     const savedCreditNote = await newCreditNote.save();
@@ -478,7 +707,7 @@ const createCreditNote = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getCreditNotes = async (req, res) => {
   const { companyId, startDate, endDate, status, financialYear } = req.query;
-  const query = { organizationId: req.organizationId };
+  const query = {};
 
   if (companyId) query.company = companyId;
   if (status) query.status = status;
@@ -519,7 +748,7 @@ const getCreditNotes = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getCreditNoteById = async (req, res) => {
   try {
-    const creditNote = await CreditNote.findOne({ _id: req.params.id, organizationId: req.organizationId })
+    const creditNote = await CreditNote.findById(req.params.id)
       .populate('company', 'name address gstNumber mobileNumber')
       .populate('consignee', 'name address gstNumber')
       .populate('originalBill', 'billNumber billDate')
@@ -554,10 +783,6 @@ const updateCreditNote = async (req, res) => {
       return res.status(404).json({ message: 'Credit note not found' });
     }
 
-    if (creditNote.organizationId && String(creditNote.organizationId) !== String(req.organizationId)) {
-      return res.status(403).json({ message: 'Access denied. This resource does not belong to your organization.' });
-    }
-
     if (status !== undefined) creditNote.status = status;
     if (stockAdjusted !== undefined) creditNote.stockAdjusted = stockAdjusted;
 
@@ -586,10 +811,6 @@ const deleteCreditNote = async (req, res) => {
       return res.status(404).json({ message: 'Credit note not found' });
     }
 
-    if (creditNote.organizationId && String(creditNote.organizationId) !== String(req.organizationId)) {
-      return res.status(403).json({ message: 'Access denied. This resource does not belong to your organization.' });
-    }
-
     if (creditNote.originalBill) {
       await Bill.findByIdAndUpdate(creditNote.originalBill, { $unset: { creditNote: 1 } });
     }
@@ -611,8 +832,7 @@ const deleteCreditNote = async (req, res) => {
 const generateCreditNotePdf = async (req, res) => {
   const creditNoteId = req.params.id;
   try {
-    const org = await getOrgDetails(req.organizationId);
-    const creditNote = await CreditNote.findOne({ _id: creditNoteId, organizationId: req.organizationId })
+    const creditNote = await CreditNote.findById(creditNoteId)
       .populate('company')
       .populate('consignee', 'name address gstNumber')
       .populate('originalBill', 'billNumber billDate')
@@ -737,7 +957,7 @@ const generateCreditNotePdf = async (req, res) => {
 
     currentY -= Math.max(shreeGaneshHeight, creditInvoiceHeight) + 18;
 
-    const companyNameText = org.name;
+    const companyNameText = 'MAHADEV FILAMENTS';
     const companyNameFontSize = 25;
     currentY -= drawTextAndMeasureHeight(companyNameText, leftMargin, currentY, {
       font: boldFont,
@@ -746,7 +966,8 @@ const generateCreditNotePdf = async (req, res) => {
       color: rgb(0.1, 0.3, 0.5),
     });
 
-    const addressText = org.address;
+    const addressText =
+      'BLOCK NO - 15, 1ST FLOOR, AMBIKA VIBHAG - 2, NEAR NAVJIVAN CIRCLE, U.M. ROAD, SURAT - 395007';
     currentY -= drawTextAndMeasureHeight(addressText, leftMargin, currentY + 14, {
       size: 9,
       align: 'center',
@@ -754,7 +975,7 @@ const generateCreditNotePdf = async (req, res) => {
       spacingAfter: 4,
     });
 
-    const companyGSTIN = org.gstin;
+    const companyGSTIN = '24ABEFM9966E1ZZ';
     const companyStateCode = companyGSTIN.substring(0, 2);
     const gstinWithStateText = `GSTIN: ${companyGSTIN}     STATE CODE: ${companyStateCode}`;
     currentY -= drawTextAndMeasureHeight(gstinWithStateText, leftMargin, currentY + 14, {
@@ -863,6 +1084,12 @@ const generateCreditNotePdf = async (req, res) => {
     );
     yRight -= drawTextAndMeasureHeight(
       `Credit Note No : ${creditNote.creditNoteNumber || 'N/A'}`,
+      billDetailsX,
+      yRight,
+      { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth }
+    );
+    yRight -= drawTextAndMeasureHeight(
+      `Financial Year : ${creditNote.financialYear || getFinancialYear(creditNote.creditNoteDate)}`,
       billDetailsX,
       yRight,
       { size: 10, spacingAfter: 4, maxWidth: billDetailsMaxWidth }
@@ -1100,29 +1327,29 @@ const generateCreditNotePdf = async (req, res) => {
       size: 12,
       spacingAfter: 4,
     });
-    bankDetailsY -= drawTextAndMeasureHeight(`Bank Name: ${org.bankName}`, leftMargin, bankDetailsY, {
+    bankDetailsY -= drawTextAndMeasureHeight('Bank Name: Prime Bank of India', leftMargin, bankDetailsY, {
       size: 10,
       spacingAfter: 3,
       maxWidth: bankDetailsMaxWidth,
     });
-    bankDetailsY -= drawTextAndMeasureHeight(`Account Name: ${org.accountName}`, leftMargin, bankDetailsY, {
+    bankDetailsY -= drawTextAndMeasureHeight('Account Name: Mahadev Filaments', leftMargin, bankDetailsY, {
       size: 10,
       spacingAfter: 3,
       maxWidth: bankDetailsMaxWidth,
     });
-    bankDetailsY -= drawTextAndMeasureHeight(`Account No.: ${org.accountNo}`, leftMargin, bankDetailsY, {
+    bankDetailsY -= drawTextAndMeasureHeight('Account No.: 10062001003372', leftMargin, bankDetailsY, {
       size: 10,
       spacingAfter: 3,
       maxWidth: bankDetailsMaxWidth,
     });
-    bankDetailsY -= drawTextAndMeasureHeight(`IFSC Code: ${org.ifsc}`, leftMargin, bankDetailsY, {
+    bankDetailsY -= drawTextAndMeasureHeight('IFSC Code: PMEC0100607', leftMargin, bankDetailsY, {
       size: 10,
       spacingAfter: 10,
       maxWidth: bankDetailsMaxWidth,
     });
 
     let declarationTitleY = bankDetailsY;
-    const forCompanyText = `For ${org.name}`;
+    const forCompanyText = 'For MAHADEV FILAMENTS';
     const forCompanyFontSize = 11;
     const forCompanyOptions = { font: boldFont, size: forCompanyFontSize, spacingAfter: 3, align: 'right' };
     const forCompanyWidth = boldFont.widthOfTextAtSize(forCompanyText, forCompanyFontSize);
@@ -1178,7 +1405,7 @@ const generateCreditNotePdf = async (req, res) => {
       opacity: 0.1,
     });
     const contactText =
-      `Contact: ${org.contactPerson} | Phone: ${org.phone} | Email: ${org.email}`;
+      'Contact: Bharat Radiya | Phone: 9825492079 | Email: mahadevfilaments@gmail.com';
     const contactTextWidth = font.widthOfTextAtSize(contactText, 9);
     drawTextAndMeasureHeight(
       contactText,

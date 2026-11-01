@@ -1,9 +1,9 @@
-import api from '../utils/axiosConfig';
+import axios from 'axios';
 
-const API_URL = '/auth/';
+const API_URL = import.meta.env.VITE_API_BASE_URL + '/auth/';
 
 const signup = (username, email, password, role = 'admin') => {
-  return api.post(API_URL + 'signup', {
+  return axios.post(API_URL + 'signup', {
     username,
     email,
     password,
@@ -12,7 +12,7 @@ const signup = (username, email, password, role = 'admin') => {
 };
 
 const login = (email, password) => {
-  return api
+  return axios
     .post(API_URL + 'login', {
       email,
       password,
@@ -23,18 +23,6 @@ const login = (email, password) => {
       }
       return response.data;
     });
-};
-
-const switchOrganization = async (token, organizationId) => {
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/switch-organization`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ organizationId }),
-  });
-  return response.json();
 };
 
 const logout = () => {
@@ -48,7 +36,6 @@ const getCurrentUser = () => {
 const AuthService = {
   signup,
   login,
-  switchOrganization,
   logout,
   getCurrentUser,
 };

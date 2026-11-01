@@ -25,7 +25,7 @@ const getMonthlySummary = async (req, res) => {
       });
     }
 
-    const summary = await gstService.getMonthlySummary(yearNum, monthNum, req.organizationId);
+    const summary = await gstService.getMonthlySummary(yearNum, monthNum);
     res.json({ success: true, data: summary });
   } catch (error) {
     console.error('Error in getMonthlySummary:', error);
@@ -54,7 +54,7 @@ const getFYSummary = async (req, res) => {
       });
     }
 
-    const summary = await gstService.getFYSummary(financialYear, req.organizationId);
+    const summary = await gstService.getFYSummary(financialYear);
     res.json({ success: true, data: summary });
   } catch (error) {
     console.error('Error in getFYSummary:', error);
@@ -71,7 +71,7 @@ const getCurrentMonthSummary = async (req, res) => {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
-    const summary = await gstService.getMonthlySummary(year, month, req.organizationId);
+    const summary = await gstService.getMonthlySummary(year, month);
     res.json({ success: true, data: summary });
   } catch (error) {
     console.error('Error in getCurrentMonthSummary:', error);
@@ -87,7 +87,7 @@ const getCurrentFYSummary = async (req, res) => {
   try {
     const now = new Date();
     const fy = gstService.getFinancialYear(now);
-    const summary = await gstService.getFYSummary(fy, req.organizationId);
+    const summary = await gstService.getFYSummary(fy);
     res.json({ success: true, data: summary });
   } catch (error) {
     console.error('Error in getCurrentFYSummary:', error);
@@ -102,8 +102,8 @@ const getCurrentFYSummary = async (req, res) => {
 const getAvailableFYs = async (req, res) => {
   try {
     const [billFYs, purchaseFYs] = await Promise.all([
-      Bill.distinct('financialYear', { organizationId: req.organizationId }),
-      Purchase.distinct('financialYear', { organizationId: req.organizationId }),
+      Bill.distinct('financialYear'),
+      Purchase.distinct('financialYear'),
     ]);
 
     const allFYs = [...new Set([...billFYs, ...purchaseFYs])].sort().reverse();
@@ -130,8 +130,7 @@ const exportMonthlyExcel = async (req, res) => {
 
     const summary = await gstService.getMonthlySummary(
       parseInt(year, 10),
-      parseInt(month, 10),
-      req.organizationId
+      parseInt(month, 10)
     );
 
     const workbook = new ExcelJS.Workbook();
@@ -254,8 +253,7 @@ const exportMonthlyPDF = async (req, res) => {
 
     const summary = await gstService.getMonthlySummary(
       parseInt(year, 10),
-      parseInt(month, 10),
-      req.organizationId
+      parseInt(month, 10)
     );
 
     const pdfDoc = await PDFDocument.create();

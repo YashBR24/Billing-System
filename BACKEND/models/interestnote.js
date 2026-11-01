@@ -15,15 +15,10 @@ const { Schema } = mongoose;
 const interestNoteSchema = new Schema(
   {
     // ── Identification ──────────────────────────────────────────────────────
-    organizationId: {
-      type:     Schema.Types.ObjectId,
-      ref:      'Organization',
-      required: false,
-      index:    true,
-    },
     interestNoteNumber: {
       type:     String,
       required: [true, 'Interest note number is required.'],
+      unique:   true,
       trim:     true,
       // e.g. "2025-26/IN/01"
       match: [
@@ -166,7 +161,7 @@ const interestNoteSchema = new Schema(
 // ─────────────────────────────────────────────────────────────────────────────
 // INDEXES
 // ─────────────────────────────────────────────────────────────────────────────
-interestNoteSchema.index({ organizationId: 1, interestNoteNumber: 1 }, { unique: true });
+interestNoteSchema.index({ interestNoteNumber: 1 }, { unique: true });
 interestNoteSchema.index({ company: 1, financialYear: 1 });
 interestNoteSchema.index({ originalBill: 1 }, { unique: true, sparse: true });
 interestNoteSchema.index({ status: 1 });

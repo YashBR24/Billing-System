@@ -14,7 +14,7 @@ const   createWorker = async (req, res) => {
 
   try {
     if (workerId) {
-      const existingWorkerById = await Worker.findOne({ workerId, organizationId: req.organizationId });
+      const existingWorkerById = await Worker.findOne({ workerId });
       if (existingWorkerById) {
         log(`Worker creation failed: Worker ID '${workerId}' already exists.`, 'warn');
         return res.status(400).json({ message: `Worker with ID '${workerId}' already exists.` });
@@ -29,7 +29,6 @@ const   createWorker = async (req, res) => {
       joiningDate: joiningDate ? new Date(joiningDate) : new Date(),
       isActive: isActive !== undefined ? isActive : true,
       createdBy: req.user._id,
-      organizationId: req.organizationId,
     });
 
     const createdWorker = await worker.save();
@@ -52,7 +51,7 @@ const   createWorker = async (req, res) => {
 // @access  Private/Admin
 const   getWorkers = async (req, res) => {
   const { active } = req.query; // e.g., /api/workers?active=true
-  const filter = { organizationId: req.organizationId };
+  const filter = {};
   if (active === 'true') {
     filter.isActive = true;
   } else if (active === 'false') {
@@ -74,7 +73,7 @@ const   getWorkers = async (req, res) => {
 // @access  Private/Admin
 const   getWorkerById = async (req, res) => {
   try {
-    const worker = await Worker.findOne({ _id: req.params.id, organizationId: req.organizationId });
+    const worker = await Worker.findById(req.params.id);
 
     if (worker) {
       log(`Fetched worker by ID: ${worker.name} (ID: ${req.params.id})`, 'info');
@@ -103,13 +102,9 @@ const   updateWorker = async (req, res) => {
       return res.status(404).json({ message: 'Worker not found' });
     }
 
-    if (worker.organizationId && String(worker.organizationId) !== String(req.organizationId)) {
-      return res.status(403).json({ message: 'Access denied. This resource does not belong to your organization.' });
-    }
-
     // Check for uniqueness if workerId is being changed
     if (workerId && workerId !== worker.workerId) {
-      const existingWorker = await Worker.findOne({ workerId, organizationId: req.organizationId });
+      const existingWorker = await Worker.findOne({ workerId });
       if (existingWorker && existingWorker._id.toString() !== req.params.id) {
         log(`Worker update failed: Worker ID '${workerId}' already exists.`, 'warn');
         return res.status(400).json({ message: `Worker with ID '${workerId}' already exists.` });
@@ -148,9 +143,6 @@ const   deleteWorker = async (req, res) => {
     const worker = await Worker.findById(req.params.id);
 
     if (worker) {
-      if (worker.organizationId && String(worker.organizationId) !== String(req.organizationId)) {
-        return res.status(403).json({ message: 'Access denied. This resource does not belong to your organization.' });
-      }
       await worker.deleteOne();
       log(`Worker deleted successfully: ${worker.name} (ID: ${req.params.id})`, 'info');
       res.json({ message: 'Worker removed' });

@@ -10,8 +10,6 @@ const path = require('path');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const ExcelJS = require('exceljs');
 
-const { getOrgDetails } = require('../utils/orgDetails');
-
 const getFinancialYear = (date = new Date()) => {
   const d = new Date(date);
   const month = d.getMonth();
@@ -29,7 +27,7 @@ const getNextChallanNumber = async (req, res) => {
     const { financialYear } = req.query;
 
     const fy = financialYear || getFinancialYear();
-    const challanNumber = await generateChallanNumber(fy, req.organizationId);
+    const challanNumber = await generateChallanNumber(fy);
 
     res.json({ challanNumber, financialYear: fy });
 
@@ -38,12 +36,11 @@ const getNextChallanNumber = async (req, res) => {
   }
 };
 
-const generateChallanNumber = async (financialYear, organizationId) => {
+const generateChallanNumber = async (financialYear) => {
   const prefix = `${financialYear}/`;
 
   const lastChallan = await Challan.findOne({
     challanNumber: { $regex: `^${prefix.replace('-', '\\-')}` },
-    organizationId,
   }).sort({ challanNumber: -1 });
 
   let nextSeq = 1;
@@ -84,6 +81,105 @@ const calculateChallanTotals = (boxDetails) => {
   };
 };
 
+// @desc    Create a new challan
+// @route   POST /api/challans
+// @access  Private/Admin
+// const createChallan = async (req, res) => {
+//   const {
+//     challanNumber,
+//     challanDate,
+//     companyId,
+//     descriptionOfGoods,
+//     broker = 'direct',
+//     boxDetails,
+//     boxIds = [],
+//   } = req.body;
+
+//   if (!challanNumber || !companyId || !descriptionOfGoods || 
+//       (!boxDetails && !boxIds.length)) {
+//     return res.status(400).json({ 
+//       message: 'Missing required fields: challanNumber, companyId, descriptionOfGoods, and either boxDetails or boxIds.' 
+//     });
+//   }
+
+//   try {
+//     const company = await Company.findById(companyId);
+//     if (!company) {
+//       log(`Challan creation failed: Company not found - ID: ${companyId}`, 'warn');
+//       return res.status(404).json({ message: 'Company not found.' });
+//     }
+
+//     const settings = await Settings.getSettings();
+//     const validDescription = settings.itemConfigurations.some(item => item.description === descriptionOfGoods);
+//     if (!validDescription) {
+//       return res.status(400).json({ message: 'Description of Goods must be from predefined settings.' });
+//     }
+
+//     const companyDetailsSnapshot = {
+//       name: company.name,
+//       address: company.address,
+//       gstNumber: company.gstNumber,
+//     };
+
+//     let finalBoxDetails = [];
+    
+//     if (boxIds && boxIds.length > 0) {
+//       const boxes = await Box.find({ _id: { $in: boxIds }, isUsed: false });
+      
+//       if (boxes.length !== boxIds.length) {
+//         return res.status(400).json({ message: 'One or more boxes are already used or not found.' });
+//       }
+
+//       finalBoxDetails = boxes.map(box => ({
+//         boxNumber: box.boxNumber,
+//         netWeight: box.netWeight,
+//         cops: box.cops,
+//       }));
+
+//       await Box.updateMany(
+//         { _id: { $in: boxIds } },
+//         { $set: { isUsed: true } }
+//       );
+//     } 
+//     else if (boxDetails && Array.isArray(boxDetails) && boxDetails.length > 0) {
+//       finalBoxDetails = boxDetails.map(box => ({
+//         boxNumber: box.boxNumber,
+//         netWeight: box.netWeight,
+//         cops: box.cops,
+//       }));
+//     }
+
+//     const calculated = calculateChallanTotals(finalBoxDetails);
+
+//     const newChallan = new Challan({
+//       challanNumber,
+//       challanDate: challanDate ? new Date(challanDate) : new Date(),
+//       company: companyId,
+//       companyDetailsSnapshot,
+//       descriptionOfGoods,
+//       broker,
+//       boxDetails: finalBoxDetails,
+//       totalNetWeight: calculated.totalNetWeight,
+//       totalCops: calculated.totalCops,
+//       createdBy: req.user._id,
+//       isUsed: false,
+//     });
+
+//     const savedChallan = await newChallan.save();
+//     log(`Challan created successfully: ${savedChallan.challanNumber} by ${req.user.email}`, 'info');
+//     res.status(201).json(savedChallan);
+//   } catch (error) {
+//     log(`Error creating challan: ${error.message} - Stack: ${error.stack}`, 'error');
+//     if (error.code === 11000 || error.message.includes('duplicate key')) {
+//       return res.status(400).json({ message: `Challan number '${challanNumber}' already exists.` });
+//     }
+//     if (error.name === 'ValidationError') {
+//       return res.status(400).json({ message: error.message });
+//     }
+//     res.status(500).json({ message: 'Server error while creating challan.' });
+//   }
+// };
+
 const createChallan = async (req, res) => {
   let {
     challanNumber,
@@ -109,7 +205,7 @@ const createChallan = async (req, res) => {
       return res.status(404).json({ message: 'Company not found.' });
     }
 
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings();
     const validDescription = settings.itemConfigurations.some(item => item.description === descriptionOfGoods);
     if (!validDescription) {
       return res.status(400).json({ message: 'Description of Goods must be from predefined settings.' });
@@ -124,7 +220,7 @@ const createChallan = async (req, res) => {
     let finalBoxDetails = [];
 
     if (boxIds && boxIds.length > 0) {
-      const boxes = await Box.find({ _id: { $in: boxIds }, isUsed: false, organizationId: req.organizationId });
+      const boxes = await Box.find({ _id: { $in: boxIds }, isUsed: false });
 
       if (boxes.length !== boxIds.length) {
         return res.status(400).json({ message: 'One or more boxes are already used or not found.' });
@@ -137,7 +233,7 @@ const createChallan = async (req, res) => {
       }));
 
       await Box.updateMany(
-        { _id: { $in: boxIds }, organizationId: req.organizationId },
+        { _id: { $in: boxIds } },
         { $set: { isUsed: true } }
       );
     } else if (boxDetails && Array.isArray(boxDetails) && boxDetails.length > 0) {
@@ -154,7 +250,7 @@ const createChallan = async (req, res) => {
     const resolvedFY = financialYear || getFinancialYear(resolvedDate);
 
     if (!challanNumber) {
-      challanNumber = await generateChallanNumber(resolvedFY, req.organizationId);
+      challanNumber = await generateChallanNumber(resolvedFY);
     }
 
     const newChallan = new Challan({
@@ -170,7 +266,6 @@ const createChallan = async (req, res) => {
       totalCops: calculated.totalCops,
       createdBy: req.user._id,
       isUsed: false,
-      organizationId: req.organizationId,
     });
 
     const savedChallan = await newChallan.save();
@@ -187,10 +282,41 @@ const createChallan = async (req, res) => {
     res.status(500).json({ message: 'Server error while creating challan.' });
   }
 };
+
+// @desc    Get all challans (with optional filters)
+// @route   GET /api/challans
+// @access  Private/Admin
+// const getChallans = async (req, res) => {
+//   const { companyId, startDate, endDate } = req.query;
+//   const query = {};
+
+//   if (companyId) query.company = companyId;
+//   if (startDate && endDate) {
+//     query.challanDate = { $gte: new Date(startDate), $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) };
+//   } else if (startDate) {
+//     query.challanDate = { $gte: new Date(startDate) };
+//   } else if (endDate) {
+//     query.challanDate = { $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) };
+//   }
+
+//   try {
+//     const challans = await Challan.find(query)
+//       .populate('company', 'name gstNumber')
+//       .populate('createdBy', 'username email')
+//       .sort({ challanDate: -1, createdAt: -1 });
+
+//     log(`Fetched challans with query ${JSON.stringify(query)} by ${req.user.email}`, 'info');
+//     res.json(challans);
+//   } catch (error) {
+//     log(`Error fetching challans: ${error.message} - Stack: ${error.stack}`, 'error');
+//     res.status(500).json({ message: 'Server error while fetching challans.' });
+//   }
+// };
+
 const getChallans = async (req, res) => {
   const { companyId, startDate, endDate, financialYear } = req.query;
 
-  const query = { organizationId: req.organizationId };
+  const query = {};
 
   if (companyId) query.company = companyId;
 
@@ -214,13 +340,77 @@ const getChallans = async (req, res) => {
     const challans = await Challan.find(query)
       .populate('company', 'name gstNumber')
       .populate('createdBy', 'username email')
-      .sort({ challanNumber: -1 });
+      .sort({ challanDate: -1 });
 
     res.json(challans);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching challans' });
   }
 };
+
+// @desc    Get all available challans for a company (not used in any bill)
+// @route   GET /api/challans?companyId=:companyId
+// @access  Private/Admin
+// const getChallansByCompany = async (req, res) => {
+//   try {
+//     const { companyId } = req.query;
+//     if (!companyId) {
+//       log('Company ID is required for fetching challans', 'warn');
+//       return res.status(400).json({ message: 'Company ID is required' });
+//     }
+
+//     // Fetch challans for the company that are not used
+//     const usedChallans = await Bill.find({ company: companyId, challan: { $ne: null } }).distinct('challan');
+//     const challans = await Challan.find({
+//       company: companyId,
+//       isUsed: false,
+//       _id: { $nin: usedChallans }
+//     })
+//       .populate('company', 'name address gstNumber')
+//       .populate('createdBy', 'username email')
+//       .select('challanNumber challanDate descriptionOfGoods totalNetWeight totalCops');
+
+//     if (!challans.length) {
+//       log(`No available challans found for company ID: ${companyId}`, 'info');
+//       return res.status(200).json([]);
+//     }
+
+//     log(`Fetched ${challans.length} available challans for company ID: ${companyId} by ${req.user.email}`, 'info');
+//     res.json(challans);
+//   } catch (error) {
+//     log(`Error fetching challans for company ID ${req.query.companyId}: ${error.message}`, 'error');
+//     res.status(500).json({ message: 'Server error while fetching challans.' });
+//   }
+// };
+
+// const getChallansByCompany = async (req, res) => {
+//   try {
+//     const { companyId, financialYear } = req.query;
+
+//     if (!companyId) {
+//       return res.status(400).json({ message: 'Company ID required' });
+//     }
+
+//     const usedChallans = await Bill.find({
+//       company: companyId,
+//       challan: { $ne: null },
+//       financialYear // ✅ ADD THIS
+//     }).distinct('challan');
+
+//     const challans = await Challan.find({
+//       company: companyId,
+//       financialYear, // ✅ ADD THIS
+//       isUsed: false,
+//       _id: { $nin: usedChallans }
+//     }).select('challanNumber challanDate descriptionOfGoods totalNetWeight totalCops');
+
+//     res.json(challans);
+
+//   } catch (error) {
+//     res.status(500).json({ message: 'Error fetching challans' });
+//   }
+// };
+
 
 const getChallansByCompany = async (req, res) => {
   try {
@@ -232,8 +422,7 @@ const getChallansByCompany = async (req, res) => {
 
     const bills = await Bill.find({
       company: companyId,
-      financialYear,
-      organizationId: req.organizationId
+      financialYear
     }).select("challan challans");
 
     const usedChallanIds = [];
@@ -254,9 +443,8 @@ const getChallansByCompany = async (req, res) => {
       company: companyId,
       financialYear,
       isUsed: false,
-      _id: { $nin: usedChallanIds },
-      organizationId: req.organizationId
-    }).sort({ challanNumber: 1 });
+      _id: { $nin: usedChallanIds }
+    });
 
     res.json(challans);
 
@@ -272,7 +460,7 @@ const getChallansByCompany = async (req, res) => {
 // @access  Private/Admin
 const getChallanById = async (req, res) => {
   try {
-    const challan = await Challan.findOne({ _id: req.params.id, organizationId: req.organizationId })
+    const challan = await Challan.findById(req.params.id)
       .populate('company', 'name address gstNumber')
       .populate('createdBy', 'username email');
 
@@ -302,16 +490,12 @@ const updateChallan = async (req, res) => {
       return res.status(404).json({ message: 'Challan not found' });
     }
 
-    if (challan.organizationId && String(challan.organizationId) !== String(req.organizationId)) {
-      return res.status(403).json({ message: 'Access denied. This resource does not belong to your organization.' });
-    }
-
     if (challan.isUsed) {
       return res.status(400).json({ message: 'Cannot modify a challan that is used in a bill.' });
     }
 
     if (challanNumber && challanNumber !== challan.challanNumber) {
-      const existingChallan = await Challan.findOne({ challanNumber, organizationId: req.organizationId });
+      const existingChallan = await Challan.findOne({ challanNumber });
       if (existingChallan && existingChallan._id.toString() !== challanId) {
         return res.status(400).json({ message: `Challan number '${challanNumber}' already exists.` });
       }
@@ -334,7 +518,7 @@ const updateChallan = async (req, res) => {
     }
 
     if (descriptionOfGoods) {
-      const settings = await Settings.getSettings(req.organizationId);
+      const settings = await Settings.getSettings();
       const validDescription = settings.itemConfigurations.some(item => item.description === descriptionOfGoods);
       if (!validDescription) {
         return res.status(400).json({ message: 'Description of Goods must be from predefined settings.' });
@@ -372,11 +556,6 @@ const deleteChallan = async (req, res) => {
       log(`Challan deletion failed: Not found with ID: ${challanId}`, 'warn');
       return res.status(404).json({ message: 'Challan not found' });
     }
-
-    if (challan.organizationId && String(challan.organizationId) !== String(req.organizationId)) {
-      return res.status(403).json({ message: 'Access denied. This resource does not belong to your organization.' });
-    }
-
     if (challan.isUsed) {
       return res.status(400).json({ message: 'Cannot delete a challan that is used in a bill.' });
     }
@@ -384,7 +563,7 @@ const deleteChallan = async (req, res) => {
     if (challan.boxDetails && challan.boxDetails.length > 0) {
       const boxNumbers = challan.boxDetails.map(b => b.boxNumber);
       await Box.updateMany(
-        { boxNumber: { $in: boxNumbers }, isUsed: true, organizationId: req.organizationId },
+        { boxNumber: { $in: boxNumbers }, isUsed: true },
         { $set: { isUsed: false } }
       );
       log(`Boxes ${boxNumbers.join(', ')} marked as Available after challan deletion`, 'info');
@@ -403,8 +582,7 @@ const deleteChallan = async (req, res) => {
 const generateChallanPdf = async (req, res) => {
   const challanId = req.params.id;
   try {
-    const org = await getOrgDetails(req.organizationId);
-    const challan = await Challan.findOne({ _id: challanId, organizationId: req.organizationId }).populate('company');
+    const challan = await Challan.findById(challanId).populate('company');
     if (!challan) {
       log(`PDF generation failed: Challan not found - ID: ${challanId}`, 'warn');
       return res.status(404).json({ message: 'Challan not found.' });
@@ -519,17 +697,17 @@ const generateChallanPdf = async (req, res) => {
       currentY -= Math.max(shreeGaneshHeight, taxInvoiceHeight) + 12;
       
       // Company Name
-      const companyNameText = org.name;
+      const companyNameText = 'MAHADEV FILAMENTS';
       const companyNameFontSize = 20;
       currentY -= drawTextAndMeasureHeight(page, companyNameText, leftMargin, currentY, { font: boldFont, size: companyNameFontSize, align: 'center', color: rgb(0.1, 0.3, 0.5) });
       
       // Address
-      const addressText = org.address;
+      const addressText = 'BLOCK NO-15, 1ST FLOOR, AMBIKA VIBHAG-2, NEAR NAVJIVAN CIRCLE, U.M. ROAD, SURAT-395007';
       const addressFontSize = 8;
       currentY -= drawTextAndMeasureHeight(page, addressText, leftMargin, currentY + 10, { size: addressFontSize, align: 'center', maxWidth: contentWidth, spacingAfter: 3 });
       
       // GSTIN
-      const gstinText = `GSTIN: ${org.gstin}`;
+      const gstinText = 'GSTIN: 24ABEFM9966E1ZZ';
       const gstinFontSize = 9;
       currentY -= drawTextAndMeasureHeight(page, gstinText, leftMargin, currentY + 10, { size: gstinFontSize, align: 'center', spacingAfter: 10 });
       
@@ -608,6 +786,12 @@ const generateChallanPdf = async (req, res) => {
         align: 'right',
         maxWidth: 140
       });
+      // detailsY -= drawTextAndMeasureHeight(page, `Broker: ${challan.broker || 'direct'}`, detailsTextX, detailsY, {
+      //   font: boldFont,
+      //   size: CONFIG.textFontSize,
+      //   spacingAfter: 8,
+      //   align: 'right'
+      // });
       
       // Return the Y position where content can start
       return Math.min(consigneeY, detailsY) - CONFIG.lineSpacing;
@@ -632,7 +816,7 @@ const generateChallanPdf = async (req, res) => {
         spacingAfter: 0
       };
       drawTextAndMeasureHeight(page, `Total Boxes: ${totalItems}`, CONFIG.leftMargin, totalsTextY, totalsOptions);
-      drawTextAndMeasureHeight(page, `Total ${org.terminology?.copsLabel || 'Cops'}: ${challan.totalCops}`, CONFIG.leftMargin + (CONFIG.contentWidth / 3), totalsTextY, totalsOptions);
+      drawTextAndMeasureHeight(page, `Total Cops: ${challan.totalCops}`, CONFIG.leftMargin + (CONFIG.contentWidth / 3), totalsTextY, totalsOptions);
       drawTextAndMeasureHeight(page, `Total Weight: ${challan.totalNetWeight.toFixed(2)}`, CONFIG.leftMargin + (CONFIG.contentWidth / 3) * 2, totalsTextY, totalsOptions);
       
       const conditionsY = totalsTextY - CONFIG.smallLineSpacing;
@@ -656,7 +840,7 @@ const generateChallanPdf = async (req, res) => {
       });
       
       const stampY = declarationY - 15;
-      drawTextAndMeasureHeight(page, `For ${org.name}`, CONFIG.rightMargin - 120, stampY, {
+      drawTextAndMeasureHeight(page, 'For MAHADEV FILAMENTS', CONFIG.rightMargin - 120, stampY, {
         font: boldFont,
         size: CONFIG.textFontSize,
         spacingAfter: 0
@@ -671,7 +855,7 @@ const generateChallanPdf = async (req, res) => {
         color: rgb(0.1, 0.3, 0.5),
         opacity: 0.1,
       });
-      const contactText = `Contact: ${org.contactPerson} | Phone: ${org.phone} | Email: ${org.email}`;
+      const contactText = 'Contact: Bharat Radiya | Phone: 9825492079 | Email: mahadevfilaments@gmail.com';
       const contactTextWidth = font.widthOfTextAtSize(contactText, CONFIG.textFontSize);
       drawTextAndMeasureHeight(page, contactText, CONFIG.leftMargin + (CONFIG.contentWidth - contactTextWidth) / 2, contactY, {
         size: CONFIG.textFontSize,
@@ -694,7 +878,7 @@ const generateChallanPdf = async (req, res) => {
         drawTextAndMeasureHeight(page, 'Sr No.', colHeaderX, tableStartY, headerOptions);
         drawTextAndMeasureHeight(page, 'Box No.', colHeaderX + headerSpacing, tableStartY, headerOptions);
         drawTextAndMeasureHeight(page, 'Weight', colHeaderX + headerSpacing * 2, tableStartY, headerOptions);
-        drawTextAndMeasureHeight(page, org.terminology?.copsLabel || 'Cops', colHeaderX + headerSpacing * 3, tableStartY, headerOptions);
+        drawTextAndMeasureHeight(page, 'Cops', colHeaderX + headerSpacing * 3, tableStartY, headerOptions);
       });
       
       const headerLineY = tableStartY - CONFIG.smallLineSpacing;
@@ -781,7 +965,7 @@ const generateChallanPdf = async (req, res) => {
 // @access  Private/Admin
 const downloadChallansExcel = async (req, res) => {
   const { companyId, startDate, endDate, status, month, year } = req.query;
-  const query = { organizationId: req.organizationId };
+  const query = {};
 
   if (companyId) query.company = companyId;
   if (status) query.status = status;
@@ -878,7 +1062,7 @@ const downloadChallansExcel = async (req, res) => {
 // @access  Private/Admin
 const downloadChallansPdf = async (req, res) => {
   const { companyId, startDate, endDate, month, year } = req.query;
-  const query = { organizationId: req.organizationId };
+  const query = {};
 
   if (companyId) query.company = companyId;
 

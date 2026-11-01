@@ -1,4 +1,14 @@
 import mongoose from 'mongoose';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+
+require('../models/Bill.js');
+require('../models/Purchase.js');
+require('../models/CreditNote.js');
+require('../models/DebitNote.js');
+require('../models/interestnote.js');
+require('../models/Settings.js');
 
 const Bill = mongoose.model('Bill');
 const Purchase = mongoose.model('Purchase');
@@ -45,19 +55,18 @@ function isInterState(buyerStateCode, supplierStateCode) {
   return buyerStateCode !== supplierStateCode;
 }
 
-async function getOwnStateCode(organizationId) {
-  const settings = await Settings.getSettings(organizationId);
+async function getOwnStateCode() {
+  const settings = await Settings.getSettings();
   if (settings && settings.companyGstNumber) {
     return extractStateCode(settings.companyGstNumber);
   }
   return null;
 }
 
-async function aggregateSales(startDate, endDate, organizationId) {
+async function aggregateSales(startDate, endDate) {
   const bills = await Bill.find({
     billDate: { $gte: startDate, $lte: endDate },
     status: { $ne: 'Cancelled' },
-    organizationId,
   }).lean();
 
   const result = {
@@ -75,7 +84,7 @@ async function aggregateSales(startDate, endDate, organizationId) {
     count: bills.length,
   };
 
-  const ownStateCode = await getOwnStateCode(organizationId);
+  const ownStateCode = await getOwnStateCode();
 
   for (const bill of bills) {
     const amountAfterDiscount = bill.amountAfterDiscount || 0;
@@ -111,10 +120,9 @@ async function aggregateSales(startDate, endDate, organizationId) {
   return result;
 }
 
-async function aggregatePurchases(startDate, endDate, organizationId) {
+async function aggregatePurchases(startDate, endDate) {
   const purchases = await Purchase.find({
     purchaseBillDate: { $gte: startDate, $lte: endDate },
-    organizationId,
   }).lean();
 
   const result = {
@@ -129,15 +137,13 @@ async function aggregatePurchases(startDate, endDate, organizationId) {
     count: purchases.length,
   };
 
-  const ownStateCode = await getOwnStateCode(organizationId);
+  const ownStateCode = await getOwnStateCode();
 
   for (const purchase of purchases) {
     const supplierStateCode = extractStateCode(purchase.supplierDetailsSnapshot?.gstNumber) || ownStateCode;
     const interState = isInterState(ownStateCode, supplierStateCode);
 
-    const baseAmount = purchase.purchaseType === 'OTHER'
-      ? (purchase.amount - (purchase.cgst || 0) - (purchase.sgst || 0))
-      : (purchase.subTotal || purchase.amount || 0);
+    const baseAmount = purchase.subTotal || purchase.amount || 0;
     const cgstAmt = purchase.cgst || 0;
     const sgstAmt = purchase.sgst || 0;
     const igstAmt = purchase.igst || 0;
@@ -166,11 +172,10 @@ async function aggregatePurchases(startDate, endDate, organizationId) {
   return result;
 }
 
-async function aggregateCreditNotes(startDate, endDate, organizationId) {
+async function aggregateCreditNotes(startDate, endDate) {
   const creditNotes = await CreditNote.find({
     creditNoteDate: { $gte: startDate, $lte: endDate },
     status: { $ne: 'Cancelled' },
-    organizationId,
   }).lean();
 
   const result = {
@@ -200,11 +205,10 @@ async function aggregateCreditNotes(startDate, endDate, organizationId) {
   return result;
 }
 
-async function aggregateDebitNotes(startDate, endDate, organizationId) {
+async function aggregateDebitNotes(startDate, endDate) {
   const debitNotes = await DebitNote.find({
     debitNoteDate: { $gte: startDate, $lte: endDate },
     status: { $ne: 'Cancelled' },
-    organizationId,
   }).lean();
 
   const result = {
@@ -234,11 +238,10 @@ async function aggregateDebitNotes(startDate, endDate, organizationId) {
   return result;
 }
 
-async function aggregateInterestNotes(startDate, endDate, organizationId) {
+async function aggregateInterestNotes(startDate, endDate) {
   const interestNotes = await InterestNote.find({
     interestNoteDate: { $gte: startDate, $lte: endDate },
     status: { $ne: 'Cancelled' },
-    organizationId,
   }).lean();
 
   const result = {
@@ -339,16 +342,16 @@ function buildGSTR3BTable(sales, purchases, creditNotes, debitNotes, interestNot
   };
 }
 
-async function getMonthlySummary(year, month, organizationId) {
+async function getMonthlySummary(year, month) {
   const { start, end } = getMonthRange(year, month);
   const fy = getFinancialYear(start);
 
   const [sales, purchases, creditNotes, debitNotes, interestNotes] = await Promise.all([
-    aggregateSales(start, end, organizationId),
-    aggregatePurchases(start, end, organizationId),
-    aggregateCreditNotes(start, end, organizationId),
-    aggregateDebitNotes(start, end, organizationId),
-    aggregateInterestNotes(start, end, organizationId),
+    aggregateSales(start, end),
+    aggregatePurchases(start, end),
+    aggregateCreditNotes(start, end),
+    aggregateDebitNotes(start, end),
+    aggregateInterestNotes(start, end),
   ]);
 
   const outputTax = round(sales.totalTax);
@@ -380,7 +383,7 @@ async function getMonthlySummary(year, month, organizationId) {
   };
 }
 
-async function getFYSummary(financialYear, organizationId) {
+async function getFYSummary(financialYear) {
   const { start, end } = getFYRange(financialYear);
   const months = [];
 
@@ -393,7 +396,7 @@ async function getFYSummary(financialYear, organizationId) {
   }
 
   const monthSummaries = await Promise.all(
-    months.map(({ year, month }) => getMonthlySummary(year, month, organizationId))
+    months.map(({ year, month }) => getMonthlySummary(year, month))
   );
 
   const totals = {

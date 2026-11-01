@@ -1,48 +1,61 @@
-import api from '../utils/axiosConfig';
+import axios from 'axios';
+import AuthService from './AuthService';
 
-const API_URL = '/company-ledger/';
+const API_URL = import.meta.env.VITE_API_BASE_URL + '/company-ledger/';
 
+const getAuthHeaders = () => {
+  const user = AuthService.getCurrentUser();
+  if (user && user.token) {
+    return { Authorization: 'Bearer ' + user.token };
+  } else {
+    console.error("User token not found for ledger service.");
+    return {};
+  }
+};
+
+// Fetch company ledger with filters
 const getCompanyLedger = (params = {}) => {
-  return api.get(API_URL + 'company', { params });
+  return axios.get(API_URL + 'company', {
+    headers: getAuthHeaders(),
+    params
+  });
 };
 
+// Fetch all companies ledger summary
 const getCompaniesLedgerSummary = (params = {}) => {
-  return api.get(API_URL + 'companies-summary', { params });
+  return axios.get(API_URL + 'companies-summary', {
+    headers: getAuthHeaders(),
+    params
+  });
 };
 
-const getCompanyBillSummary = (params = {}) => {
-  return api.get(API_URL + 'company-bills', { params });
-};
-
-const getCompanyOutstanding = (params = {}) => {
-  return api.get(API_URL + 'company-outstanding', { params });
-};
-
-const getCompanyFinancialYears = (params = {}) => {
-  return api.get(API_URL + 'company-financial-years', { params });
-};
-
+// Download company ledger as Excel
 const downloadCompanyLedgerExcel = (params = {}) => {
-  return api.get(API_URL + 'excel', {
+  return axios.get(API_URL + 'excel', {
+    headers: getAuthHeaders(),
     params,
     responseType: 'blob',
   });
 };
 
+// Download company ledger as PDF
 export const downloadCompanyLedgerPDF = (params) => {
+  // Ensure companyId is always included
   const downloadParams = {
-    companyId: params.companyId || 'all',
+    companyId: params.companyId || 'all', // Default to 'all' if not specified
     startDate: params.startDate,
     endDate: params.endDate,
     month: params.month,
     year: params.year
   };
-  return api.get(API_URL + 'pdf', {
+  return axios.get(API_URL + 'pdf', {
+    headers: getAuthHeaders(),
     params: downloadParams,
     responseType: 'blob',
   });
 };
 
+// Helper function to trigger file download
 const triggerDownload = (blobData, fileName) => {
   const url = window.URL.createObjectURL(new Blob([blobData]));
   const link = document.createElement('a');
@@ -57,9 +70,6 @@ const triggerDownload = (blobData, fileName) => {
 const LedgerService = {
   getCompanyLedger,
   getCompaniesLedgerSummary,
-  getCompanyBillSummary,
-  getCompanyOutstanding,
-  getCompanyFinancialYears,
   downloadCompanyLedgerExcel,
   downloadCompanyLedgerPDF,
   triggerDownload

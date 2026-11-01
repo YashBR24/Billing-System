@@ -1,12 +1,32 @@
+// const express = require('express');
+// const router = express.Router();
+// const { getCompanyLedger, getAllCompaniesLedger, downloadLedgerExcel, downloadLedgerPdf } = require('../controllers/companyLedgerController');
+// const { protect, isAdmin } = require('../middleware/authMiddleware');
+
+// // All routes in this file are protected and require admin access
+// router.use(protect);
+// router.use(isAdmin);
+
+// router.route('/')
+//   .get( getCompanyLedger);
+
+// router.route('/all')
+//   .get(getAllCompaniesLedger);
+
+// router.route('/download/excel')
+//   .get(downloadLedgerExcel);
+
+// router.route('/download/pdf')
+//   .get(downloadLedgerPdf);
+
+// module.exports = router;
+
 const express = require('express');
 const router = express.Router();
 const { getCompanyLedger,
     getCompaniesLedgerSummary,
   downloadCompanyLedgerExcel,
-  downloadCompanyLedgerPDF,
-  getCompanyBillSummary,
-  getCompanyOutstanding,
-  getCompanyFinancialYears
+  downloadCompanyLedgerPDF
 } = require('../controllers/companyLedgerController');
 const { protect, isAdmin } = require('../middleware/authMiddleware');
 
@@ -19,15 +39,6 @@ router.route('/company')
 
 router.route('/companies-summary')
   .get(getCompaniesLedgerSummary);
-
-router.route('/company-bills')
-  .get(getCompanyBillSummary);
-
-router.route('/company-outstanding')
-  .get(getCompanyOutstanding);
-
-router.route('/company-financial-years')
-  .get(getCompanyFinancialYears);
 
 router.route('/excel')
   .get(  downloadCompanyLedgerExcel);

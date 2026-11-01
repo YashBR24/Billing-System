@@ -38,7 +38,7 @@ const protect = async (req, res, next) => {
 };
 
 const isAdmin = (req, res, next) => {
-  if (req.user && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
+  if (req.user && req.user.role === 'admin') {
     next();
   } else {
     log(`Authorization failed: User ${req.user ? req.user.email : 'Unknown'} is not an admin.`, 'warn');

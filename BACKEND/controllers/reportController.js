@@ -7,7 +7,7 @@ const { Parser } = require('json2csv'); // For CSV export
 // @access  Private/Admin
 const   getTransactionReport = async (req, res) => {
   const { companyId, type, paymentMethod, startDate, endDate, month, year, descriptionSearch } = req.query;
-  const query = { organizationId: req.organizationId };
+  const query = {};
 
   if (companyId) query.company = companyId;
   if (type) query.type = type;
@@ -76,7 +76,7 @@ const   getTransactionReport = async (req, res) => {
 const   exportTransactionReportCSV = async (req, res) => {
   // Re-use the same query logic as getTransactionReport
   const { companyId, type, paymentMethod, startDate, endDate, month, year, descriptionSearch } = req.query;
-  const query = { organizationId: req.organizationId };
+  const query = {};
   if (companyId) query.company = companyId;
   if (type) query.type = type;
   if (paymentMethod) query.paymentMethod = paymentMethod;

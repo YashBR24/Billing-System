@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import AuthService from '../../services/AuthService';
 import {
   Eye,
   Edit3,
@@ -15,14 +14,15 @@ import {
   SlidersHorizontal,
   AlertCircle,
   CheckCircle,
+  XCircle,
   TrendingUp,
   Hash,
   Printer,
   Weight,
+  Box,
 } from 'lucide-react';
 import BoxService from '../../services/BoxService';
 import SettingsService from '../../services/SettingsService';
-import { getCopsLabel, capitalizeLabel } from '../../utils/terminology';
 
 const getCurrentFY = (date = new Date()) => {
   const d = new Date(date);
@@ -80,12 +80,11 @@ const BoxListPage = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showFilters, setShowFilters] = useState(false);
   const [availableDescriptions, setAvailableDescriptions] = useState([]);
-  const [statsFilterFY, setStatsFilterFY] = useState(getCurrentFY());
-  const [statsData, setStatsData] = useState({ total: 0, available: 0, used: 0, totalNetWeight: 0, availableNetWeight: 0 });
 
   const [filterDescription, setFilterDescription] = useState('');
-  const [filterStatus, setFilterStatus] = useState('false');
+  const [filterStatus, setFilterStatus] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
+  const [filterFY, setFilterFY] = useState(getCurrentFY());
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [formMode, setFormMode] = useState('create');
@@ -126,24 +125,13 @@ const BoxListPage = () => {
     const fetchSettings = async () => {
       try {
         const response = await SettingsService.getSettings();
-        const descriptions = response.data.itemConfigurations.map(item => item.description) || [];
-        setAvailableDescriptions(descriptions);
-        if (descriptions.length > 0) {
-          setFilterDescription(descriptions[0]);
-        }
+        setAvailableDescriptions(response.data.itemConfigurations.map(item => item.description) || []);
       } catch (err) {
         console.error('Failed to fetch settings:', err);
       }
     };
     fetchSettings();
   }, []);
-
-  const formatDateForInput = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   const formatDisplayDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -163,9 +151,10 @@ const BoxListPage = () => {
     setError('');
     try {
       const params = {};
-      if (filterDescription) params.descriptionOfGoods = filterDescription;
+      if (filterDescription && filterDescription !== 'All Descriptions') params.descriptionOfGoods = filterDescription;
       if (filterStatus !== '') params.isUsed = filterStatus;
       if (filterSearch.trim()) params.search = filterSearch.trim();
+      if (filterFY) params.fy = filterFY;
 
       const response = await BoxService.getAllBoxes(params);
       setBoxes(response.data);
@@ -175,33 +164,17 @@ const BoxListPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filterDescription, filterStatus, filterSearch]);
+  }, [filterDescription, filterStatus, filterSearch, filterFY]);
 
   useEffect(() => {
     fetchBoxes();
   }, [fetchBoxes]);
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const params = { fy: statsFilterFY };
-      if (filterDescription) params.descriptionOfGoods = filterDescription;
-      console.log('[fetchStats] calling API with params:', params);
-      const response = await BoxService.getBoxesStats(params);
-      console.log('[fetchStats] response:', response.data);
-      setStatsData(response.data);
-    } catch (err) {
-      console.error('Failed to fetch stats:', err);
-    }
-  }, [statsFilterFY, filterDescription]);
-
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
-
   const clearFilters = () => {
     setFilterDescription('');
-    setFilterStatus('false');
+    setFilterStatus('');
     setFilterSearch('');
+    setFilterFY(getCurrentFY());
     if (isMobile) setShowFilters(false);
   };
 
@@ -245,11 +218,11 @@ const BoxListPage = () => {
     if (!formData.descriptionOfGoods) errors.descriptionOfGoods = 'Description is required.';
     if (!formData.grossWeight || isNaN(parseFloat(formData.grossWeight)) || parseFloat(formData.grossWeight) <= 0) errors.grossWeight = 'Valid gross weight is required.';
     if (!formData.tareWeight || isNaN(parseFloat(formData.tareWeight)) || parseFloat(formData.tareWeight) < 0) errors.tareWeight = 'Valid tare weight is required.';
-    if (!formData.cops || isNaN(parseInt(formData.cops)) || parseInt(formData.cops) <= 0) errors.cops = `Valid ${getCopsLabel().toLowerCase()} count is required.`;
+    if (!formData.cops || isNaN(parseInt(formData.cops)) || parseInt(formData.cops) <= 0) errors.cops = 'Valid cops count is required.';
     const gross = parseFloat(formData.grossWeight) || 0;
     const tare = parseFloat(formData.tareWeight) || 0;
     if (tare >= gross) errors.tareWeight = 'Tare weight must be less than gross weight.';
-    if (formData.copsWeight !== '' && (isNaN(parseFloat(formData.copsWeight)) || parseFloat(formData.copsWeight) < 0)) errors.copsWeight = `${getCopsLabel()} weight must be a number >= 0.`;
+    if (formData.copsWeight !== '' && (isNaN(parseFloat(formData.copsWeight)) || parseFloat(formData.copsWeight) < 0)) errors.copsWeight = 'Cops weight must be a number >= 0.';
     if (!formData.boxDate) errors.boxDate = 'Date is required.';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -272,10 +245,7 @@ const BoxListPage = () => {
     try {
       if (formMode === 'create') {
         await BoxService.createBox(payload);
-        const prevDesc = formData.descriptionOfGoods;
-        const newDate = new Date().toISOString().split('T')[0];
-        setFormData({ boxNumber: '', descriptionOfGoods: prevDesc, grossWeight: '', tareWeight: '', netWeight: '', cops: '', copsWeight: '', boxDate: newDate });
-        fetchAutoBoxNumber(getCurrentFY(new Date(newDate)), prevDesc);
+        setFormData({ boxNumber: '', descriptionOfGoods: '', grossWeight: '', tareWeight: '', netWeight: '', cops: '', copsWeight: '', boxDate: new Date().toISOString().split('T')[0] });
         setSuccessMessage('Box created successfully!');
       } else {
         await BoxService.updateBox(editingBox._id, payload);
@@ -363,9 +333,9 @@ const BoxListPage = () => {
     const tw = parseFloat(detailLocal.tareWeight);
     if (isNaN(gw) || gw <= 0) e.grossWeight = 'Valid gross weight required';
     if (isNaN(tw) || tw < 0) e.tareWeight = 'Valid tare weight required';
-    if (!detailLocal.cops || isNaN(parseInt(detailLocal.cops)) || parseInt(detailLocal.cops) <= 0) e.cops = `Valid ${getCopsLabel().toLowerCase()} required`;
+    if (!detailLocal.cops || isNaN(parseInt(detailLocal.cops)) || parseInt(detailLocal.cops) <= 0) e.cops = 'Valid cops required';
     if (tw >= gw) e.tareWeight = 'Tare must be less than gross';
-    if (detailLocal.copsWeight !== '' && (isNaN(parseFloat(detailLocal.copsWeight)) || parseFloat(detailLocal.copsWeight) < 0)) e.copsWeight = `${getCopsLabel()} weight >= 0`;
+    if (detailLocal.copsWeight !== '' && (isNaN(parseFloat(detailLocal.copsWeight)) || parseFloat(detailLocal.copsWeight) < 0)) e.copsWeight = 'Cops weight >= 0';
     setDetailErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -416,14 +386,10 @@ const BoxListPage = () => {
   const handlePrint = (lotNo) => {
     const printBoxes = boxes.filter(b => selectedBoxes.includes(b._id));
     if (printBoxes.length === 0) return;
-    const currentUser = AuthService.getCurrentUser();
-    const orgName = currentUser?.organization?.name || 'Billing System';
-    const productLabel = 'POLYESTER FILAMENT YARN';
-    const cartoonLabel = 'CARTOON NO';
     const printWindow = window.open('', '_blank');
     const slipsPerPage = 12;
     const pageCount = Math.ceil(printBoxes.length / slipsPerPage);
-    let html = `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${orgName} - Box Slips</title><style>@page { size: A4; margin: 0; }* { margin: 0; padding: 0; box-sizing: border-box; }body, html { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; }.page { width: 210mm; height: 297mm; padding: 5mm; display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(6, 46mm); gap: 2mm; page-break-after: always; }.slip { border: 2px solid #000; padding: 2mm 3mm; display: flex; flex-direction: column; justify-content: flex-start; line-height: 1.3; }.header { border: 2px solid #000; text-align: center; padding: 1mm 0; margin-bottom: 1.5mm; }.company { font-weight: bold; font-size: 10pt; letter-spacing: 1px; }.product { font-size: 7.5pt; }.details { font-size: 8.2pt; }.row { display: flex; justify-content: space-between; margin-bottom: 1mm; }.left-col, .right-col { display: flex; gap: 1.5mm; flex: 0 0 48%; }.label { font-weight: 600; }.value { font-weight: normal; }.note { font-size: 7pt; font-style: italic; margin-top: 1mm; line-height: 1.2; }</style></head><body>`;
+    let html = `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>MAHADEV FILAMENTS - Box Slips</title><style>@page { size: A4; margin: 0; }* { margin: 0; padding: 0; box-sizing: border-box; }body, html { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; }.page { width: 210mm; height: 297mm; padding: 5mm; display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(6, 46mm); gap: 2mm; page-break-after: always; }.slip { border: 2px solid #000; padding: 2mm 3mm; display: flex; flex-direction: column; justify-content: flex-start; line-height: 1.3; }.header { border: 2px solid #000; text-align: center; padding: 1mm 0; margin-bottom: 1.5mm; }.company { font-weight: bold; font-size: 10pt; letter-spacing: 1px; }.product { font-size: 7.5pt; }.details { font-size: 8.2pt; }.row { display: flex; justify-content: space-between; margin-bottom: 1mm; }.left-col, .right-col { display: flex; gap: 1.5mm; flex: 0 0 48%; }.label { font-weight: 600; }.value { font-weight: normal; }.note { font-size: 7pt; font-style: italic; margin-top: 1mm; line-height: 1.2; }</style></head><body>`;
     for (let p = 0; p < pageCount; p++) {
       const start = p * slipsPerPage;
       const end = Math.min(start + slipsPerPage, printBoxes.length);
@@ -431,13 +397,13 @@ const BoxListPage = () => {
       html += `<div class="page">`;
       pageBoxes.forEach(box => {
         const denier = box.descriptionOfGoods || 'N/A';
-        const cartoonNo = (box.boxNumber?.toString().split('/')[1] || box.boxNumber?.toString() || 'N/A');
+        const cartoonNo = box.boxNumber?.toString() || 'N/A';
         const unit = formatInt(box.cops);
         const gross = formatPlainKg(box.grossWeight);
         const tare = formatPlainKg(box.tareWeight);
         const net = formatPlainKg(box.netWeight);
         const grade = 'A++';
-        html += `<div class="slip"><div class="header"><div class="company">${orgName}</div><div class="product">${productLabel}</div></div><div class="details"><div class="row"><div class="left-col"><span class="label">${cartoonLabel}:</span><span class="value">${cartoonNo}</span></div><div class="right-col"><span class="label">UNIT:</span><span class="value">${unit}</span></div></div><div class="row"><div class="left-col"><span class="label">GRADE:</span><span class="value">${grade}</span></div><div class="right-col"><span class="label">GROSS WT:</span><span class="value">${gross}</span></div></div><div class="row"><div class="left-col"><span class="label">LOT NO:</span><span class="value">${lotNo || ''}</span></div><div class="right-col"><span class="label">TARE WT:</span><span class="value">${tare}</span></div></div><div class="row"><div class="left-col"><span class="label">DENIER:</span><span class="value">${denier}</span></div><div class="right-col"><span class="label">NET WT:</span><span class="value">${net}</span></div></div><div class="note">Please do not mix this Lot No. with any other Lot No.</div></div></div>`;
+        html += `<div class="slip"><div class="header"><div class="company">MAHADEV FILAMENT</div><div class="product">POLYESTAR FILAMENT YARN</div></div><div class="details"><div class="row"><div class="left-col"><span class="label">CARTOON NO:</span><span class="value">${cartoonNo}</span></div><div class="right-col"><span class="label">UNIT:</span><span class="value">${unit}</span></div></div><div class="row"><div class="left-col"><span class="label">GRADE:</span><span class="value">${grade}</span></div><div class="right-col"><span class="label">GROSS WT:</span><span class="value">${gross}</span></div></div><div class="row"><div class="left-col"><span class="label">LOT NO:</span><span class="value">${lotNo || ''}</span></div><div class="right-col"><span class="label">TARE WT:</span><span class="value">${tare}</span></div></div><div class="row"><div class="left-col"><span class="label">DENIER:</span><span class="value">${denier}</span></div><div class="right-col"><span class="label">NET WT:</span><span class="value">${net}</span></div></div><div class="note">Please do not mix this Lot No. with any other Lot No.</div></div></div>`;
       });
       for (let i = pageBoxes.length; i < slipsPerPage; i++) { html += `<div class="slip"></div>`; }
       html += `</div>`;
@@ -461,7 +427,7 @@ const BoxListPage = () => {
   const handleGenerateFilteredPDF = async () => {
     setIsGeneratingPDF(true);
     try {
-      const pdfFilters = { descriptionOfGoods: filterDescription || '', isUsed: filterStatus || '', search: filterSearch || '' };
+      const pdfFilters = { descriptionOfGoods: filterDescription || '', isUsed: filterStatus || '', search: filterSearch || '', fy: filterFY || '' };
       const response = await BoxService.generateBoxesPDF(pdfFilters);
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
@@ -512,7 +478,7 @@ const BoxListPage = () => {
   const handleGenerateFilteredExcel = async () => {
     setIsGeneratingExcel(true);
     try {
-      const excelFilters = { descriptionOfGoods: filterDescription || '', isUsed: filterStatus || '', search: filterSearch || '' };
+      const excelFilters = { descriptionOfGoods: filterDescription || '', isUsed: filterStatus || '', search: filterSearch || '', fy: filterFY || '' };
       const response = await BoxService.generateBoxesExcel(excelFilters);
       const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
@@ -594,11 +560,10 @@ const BoxListPage = () => {
   };
 
   const stats = {
-    total: statsData.total || 0,
-    available: statsData.available || 0,
-    used: statsData.used || 0,
-    totalNetWeight: statsData.totalNetWeight || 0,
-    availableNetWeight: statsData.availableNetWeight || 0
+    total: boxes.length,
+    available: boxes.filter(b => !b.isUsed).length,
+    used: boxes.filter(b => b.isUsed).length,
+    totalNetWeight: boxes.reduce((sum, b) => sum + (toNumber(b.netWeight) || 0), 0)
   };
 
   return (
@@ -689,47 +654,35 @@ const BoxListPage = () => {
           </div>
         </motion.div>
 
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-700">Summary (FY: {statsFilterFY})</h2>
-            <select
-              value={statsFilterFY}
-              onChange={(e) => setStatsFilterFY(e.target.value)}
-              className="p-2 border border-slate-200 rounded-lg text-sm text-black bg-white"
-            >
-              {buildFYOptions().map(fy => (<option key={fy} value={fy}>{fy}</option>))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <motion.div className="bg-white rounded-2xl p-5 border border-slate-200/50 shadow-sm hover:shadow-md transition-all" whileHover={{ y: -2 }}>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-violet-50 to-violet-100/50"><Package className="h-5 w-5 text-violet-600" /></div>
-                <span className="text-sm font-medium text-slate-500">Total Boxes</span>
-              </div>
-              <p className="text-2xl font-bold text-violet-600">{stats.total}</p>
-            </motion.div>
-            <motion.div className="bg-white rounded-2xl p-5 border border-slate-200/50 shadow-sm hover:shadow-md transition-all" whileHover={{ y: -2 }}>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50"><CheckCircle className="h-5 w-5 text-emerald-600" /></div>
-                <span className="text-sm font-medium text-slate-500">Available</span>
-              </div>
-              <p className="text-2xl font-bold text-emerald-600">{stats.available}</p>
-            </motion.div>
-            <motion.div className="bg-white rounded-2xl p-5 border border-slate-200/50 shadow-sm hover:shadow-md transition-all" whileHover={{ y: -2 }}>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50"><TrendingUp className="h-5 w-5 text-blue-600" /></div>
-                <span className="text-sm font-medium text-slate-500">Total Net Weight</span>
-              </div>
-              <p className="text-2xl font-bold text-blue-600">{formatPlainKg(stats.totalNetWeight)} kg</p>
-            </motion.div>
-            <motion.div className="bg-white rounded-2xl p-5 border border-slate-200/50 shadow-sm hover:shadow-md transition-all" whileHover={{ y: -2 }}>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50"><Weight className="h-5 w-5 text-amber-600" /></div>
-                <span className="text-sm font-medium text-slate-500">Available Net Wt</span>
-              </div>
-              <p className="text-2xl font-bold text-amber-600">{formatPlainKg(stats.availableNetWeight)} kg</p>
-            </motion.div>
-          </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <motion.div className="bg-white rounded-2xl p-5 border border-slate-200/50 shadow-sm hover:shadow-md transition-all" whileHover={{ y: -2 }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-violet-50 to-violet-100/50"><Package className="h-5 w-5 text-violet-600" /></div>
+              <span className="text-sm font-medium text-slate-500">Total Boxes</span>
+            </div>
+            <p className="text-2xl font-bold text-violet-600">{stats.total}</p>
+          </motion.div>
+          <motion.div className="bg-white rounded-2xl p-5 border border-slate-200/50 shadow-sm hover:shadow-md transition-all" whileHover={{ y: -2 }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50"><CheckCircle className="h-5 w-5 text-emerald-600" /></div>
+              <span className="text-sm font-medium text-slate-500">Available</span>
+            </div>
+            <p className="text-2xl font-bold text-emerald-600">{stats.available}</p>
+          </motion.div>
+          <motion.div className="bg-white rounded-2xl p-5 border border-slate-200/50 shadow-sm hover:shadow-md transition-all" whileHover={{ y: -2 }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-red-50 to-red-100/50"><XCircle className="h-5 w-5 text-red-600" /></div>
+              <span className="text-sm font-medium text-slate-500">Used</span>
+            </div>
+            <p className="text-2xl font-bold text-red-600">{stats.used}</p>
+          </motion.div>
+          <motion.div className="bg-white rounded-2xl p-5 border border-slate-200/50 shadow-sm hover:shadow-md transition-all" whileHover={{ y: -2 }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50"><TrendingUp className="h-5 w-5 text-blue-600" /></div>
+              <span className="text-sm font-medium text-slate-500">Net Weight</span>
+            </div>
+            <p className="text-2xl font-bold text-blue-600">{formatPlainKg(stats.totalNetWeight)} kg</p>
+          </motion.div>
         </div>
 
         {isMobile && (
@@ -860,15 +813,27 @@ const BoxListPage = () => {
                   transition={{ duration: 0.3 }}
                   className="overflow-hidden"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-600">Financial Year</label>
+                      <select
+                        value={filterFY}
+                        onChange={(e) => setFilterFY(e.target.value)}
+                        className="w-full p-2 mt-3 border border-slate-200 rounded-lg text-sm text-black bg-white"
+                        disabled={isLoading}
+                      >
+                        {buildFYOptions().map(fy => (<option key={fy} value={fy}>{fy}</option>))}
+                      </select>
+                    </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-slate-600">Description</label>
                       <select
                         value={filterDescription}
                         onChange={(e) => setFilterDescription(e.target.value)}
-                        className="w-full p-2 border border-slate-200 rounded-lg text-sm text-black bg-white"
+                        className="w-full p-2 mt-3 border border-slate-200 rounded-lg text-sm text-black bg-white"
                         disabled={isLoading}
                       >
+                        <option value="">All Descriptions</option>
                         {availableDescriptions.map(d => (<option key={d} value={d}>{d}</option>))}
                       </select>
                     </div>
@@ -877,54 +842,74 @@ const BoxListPage = () => {
                       <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
-                        className="w-full p-2 border border-slate-200 rounded-lg text-sm text-black bg-white"
+                        className="w-full p-2 mt-3 border border-slate-200 rounded-lg text-sm text-black bg-white"
                         disabled={isLoading}
                       >
+                        <option value="">All Statuses</option>
                         <option value="false">Available</option>
                         <option value="true">Used</option>
-                        <option value="">All</option>
                       </select>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-600">Search Box</label>
-                      <input
-                        type="text"
-                        value={filterSearch}
-                        onChange={(e) => setFilterSearch(e.target.value)}
-                        placeholder="Box number..."
-                        className="w-full p-2 border border-slate-200 rounded-lg text-sm text-black bg-white"
-                      />
+                  </div>
+                  <div className="mt-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-64">
+                        <input
+                          type="text"
+                          value={filterSearch}
+                          onChange={(e) => setFilterSearch(e.target.value)}
+                          placeholder="Search box number..."
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-black bg-white"
+                        />
+                      </div>
+                      {selectedBoxes.length > 0 && (
+                        <div className="flex gap-2">
+                          <motion.button
+                            onClick={handleGenerateSelectedPDF}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium shadow-sm hover:bg-purple-700 text-sm"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <FileText className="h-3.5 w-3.5" />
+                              <span>Selected PDF</span>
+                            </div>
+                          </motion.button>
+                          <motion.button
+                            onClick={handleGenerateSelectedExcel}
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium shadow-sm hover:bg-emerald-700 text-sm"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <Download className="h-3.5 w-3.5" />
+                              <span>Selected Excel</span>
+                            </div>
+                          </motion.button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {selectedBoxes.length > 0 && (
-                    <div className="flex gap-2 mt-3">
-                      <motion.button
-                        onClick={handleGenerateSelectedPDF}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium shadow-sm hover:bg-purple-700 text-sm"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <FileText className="h-3.5 w-3.5" />
-                          <span>Selected PDF</span>
-                        </div>
-                      </motion.button>
-                      <motion.button
-                        onClick={handleGenerateSelectedExcel}
-                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium shadow-sm hover:bg-emerald-700 text-sm"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <Download className="h-3.5 w-3.5" />
-                          <span>Selected Excel</span>
-                        </div>
-                      </motion.button>
-                    </div>
-                  )}
                 </motion.div>
               )}
             </AnimatePresence>
+          </motion.div>
+        )}
+
+        {selectedBoxes.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-xl p-3 mb-4 flex items-center justify-between shadow-sm"
+          >
+            <span className="text-sm text-violet-700 font-medium">{selectedBoxes.length} box{selectedBoxes.length !== 1 ? 'es' : ''} selected</span>
+            <div className="flex items-center gap-2">
+              <button onClick={handlePrintSlips} className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-medium rounded-lg text-xs shadow-sm flex items-center gap-1.5 transition-all hover:shadow-md">
+                <Printer className="h-3.5 w-3.5" /> Print Slips
+              </button>
+              <button onClick={() => setSelectedBoxes([])} className="text-xs text-violet-600 hover:text-violet-800 font-medium">Clear selection</button>
+            </div>
           </motion.div>
         )}
 
@@ -1004,8 +989,8 @@ const BoxListPage = () => {
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-sm text-slate-600 mb-3">
                       <div><span className="text-xs text-slate-400">Net Wt</span><p className="font-medium">{formatKg(box.netWeight)}</p></div>
-                      <div><span className="text-xs text-slate-400">{getCopsLabel()}</span><p className="font-medium">{formatInt(box.cops)}</p></div>
-                      <div><span className="text-xs text-slate-400">Status</span><p className="font-medium">{box.isUsed ? 'Used' : 'Available'}</p></div>
+                      <div><span className="text-xs text-slate-400">Cops</span><p className="font-medium">{formatInt(box.cops)}</p></div>
+                      <div><span className="text-xs text-slate-400">Date</span><p className="font-medium">{formatDisplayDate(box.createdAt)}</p></div>
                     </div>
                     <div className="flex justify-end gap-2">
                       <motion.button onClick={() => handleViewBox(box)} className="p-2 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
@@ -1026,8 +1011,8 @@ const BoxListPage = () => {
                 ))}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full divide-y divide-slate-200">
+              <div className="overflow-x-auto max-w-fit">
+                <table className="max-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50">
                     <tr>
                       <th className="px-6 py-3 text-left w-10">
@@ -1035,8 +1020,11 @@ const BoxListPage = () => {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Box #</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Description</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Gross Wt</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Tare Wt</th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Net Wt</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">{getCopsLabel()}</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Cops</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -1057,8 +1045,11 @@ const BoxListPage = () => {
                           <span className="text-violet-600 font-semibold">{box.boxNumber}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{box.descriptionOfGoods}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-right">{formatPlainKg(box.grossWeight)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-right">{formatPlainKg(box.tareWeight)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-right font-medium">{formatPlainKg(box.netWeight)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-right">{formatInt(box.cops)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-right">{formatDisplayDate(box.createdAt)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border ${getStatusColor(box.isUsed)}`}>
                             {box.isUsed ? 'Used' : 'Available'}
@@ -1178,14 +1169,14 @@ const BoxListPage = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-1">
-                        {getCopsLabel()} <span className="text-red-500">*</span>
+                        Cops <span className="text-red-500">*</span>
                       </label>
                       <input type="number" name="cops" value={formData.cops} onChange={handleFormChange} step="1" className={`w-full p-2 text-sm text-black border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all ${formErrors.cops ? 'border-red-500' : 'border-slate-200'}`} />
                       {formErrors.cops && <p className="mt-1 text-xs text-red-500">{formErrors.cops}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-1">
-                        {getCopsLabel()} Weight (kg)
+                        Cops Weight (kg)
                       </label>
                       <input type="number" name="copsWeight" value={formData.copsWeight} onChange={handleFormChange} step="0.01" className={`w-full p-2 text-sm text-black border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all ${formErrors.copsWeight ? 'border-red-500' : 'border-slate-200'}`} />
                       {formErrors.copsWeight && <p className="mt-1 text-xs text-red-500">{formErrors.copsWeight}</p>}
@@ -1237,109 +1228,119 @@ const BoxListPage = () => {
 
         <AnimatePresence>
           {showDetail && detailBox && (
-            <motion.div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setShowDetail(false); setDetailEditMode(false); }}>
-              <motion.div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} transition={{ duration: 0.3 }} onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-violet-50 to-blue-50">
+            <motion.div className="fixed inset-0 z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowDetail(false); setDetailEditMode(false); }} />
+              <motion.div className="absolute right-0 top-0 h-full w-full sm:w-[720px] bg-white shadow-2xl border-l border-slate-200 flex flex-col" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', stiffness: 260, damping: 30 }}>
+                <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-slate-50 to-white">
                   <div>
-                    <h3 className="text-xl font-semibold text-slate-800">Box Details</h3>
-                    <p className="text-sm text-slate-500">Box #{detailBox.boxNumber}</p>
+                    <h3 className="text-lg font-semibold text-slate-800">Box Details</h3>
+                    <p className="text-xs text-slate-500">Box #{detailBox.boxNumber}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {!detailBox.isUsed && (
-                      <button onClick={() => setDetailEditMode(v => !v)} className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${detailEditMode ? 'bg-slate-500 hover:bg-slate-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}>{detailEditMode ? 'Cancel' : 'Edit'}</button>
+                      <button onClick={() => setDetailEditMode(v => !v)} className={`px-3 py-1.5 rounded-lg text-white text-sm transition-colors ${detailEditMode ? 'bg-slate-500 hover:bg-slate-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}>{detailEditMode ? 'Cancel' : 'Edit'}</button>
                     )}
                     <button onClick={() => { setShowDetail(false); setDetailEditMode(false); }} className="p-2 rounded-lg hover:bg-slate-100"><X className="h-5 w-5 text-slate-600" /></button>
                   </div>
                 </div>
 
                 {detailBox.isUsed && (
-                  <div className="mx-6 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm flex items-center gap-2">
+                  <div className="mx-5 mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm flex items-center gap-2">
                     <AlertCircle className="h-4 w-4" /> This box is Used in a challan and cannot be edited.
                   </div>
                 )}
 
                 {detailErrors.form && (
-                  <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{detailErrors.form}</div>
+                  <div className="mx-5 mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{detailErrors.form}</div>
                 )}
 
-                <div className="p-6">
+                <div className="flex-1 overflow-y-auto p-5">
                   {!detailEditMode ? (
-                    <div className="space-y-6">
-                      <div className="p-5 bg-gradient-to-r from-violet-50 to-blue-50 rounded-xl border border-violet-100">
+                    <div className="space-y-4">
+                      <div className="p-4 bg-gradient-to-r from-violet-50 to-blue-50 rounded-xl border border-violet-100">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-xs text-slate-500 mb-1">Box Number</p>
-                            <p className="text-2xl font-bold text-slate-800">{detailBox.boxNumber}</p>
+                            <p className="text-xl font-bold text-slate-800">{detailBox.boxNumber}</p>
                           </div>
-                          <span className={`px-4 py-1.5 text-sm font-semibold rounded-full ${detailBox.isUsed ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          <span className={`px-3 py-1 text-sm font-semibold rounded-full ${detailBox.isUsed ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
                             {detailBox.isUsed ? 'Used' : 'Available'}
                           </span>
                         </div>
-                        <p className="text-base text-slate-600 mt-3 font-medium">{detailBox.descriptionOfGoods}</p>
+                        <p className="text-sm text-slate-600 mt-2">{detailBox.descriptionOfGoods}</p>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                          <p className="text-xs font-semibold text-slate-500 mb-1">Gross Weight</p>
-                          <p className="text-lg text-slate-800 font-bold">{formatPlainKg(detailBox.grossWeight)}</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 rounded-lg border border-slate-200 bg-white">
+                          <p className="text-xs font-semibold text-slate-500 mb-0.5">Gross Weight</p>
+                          <p className="text-slate-800 font-medium">{formatPlainKg(detailBox.grossWeight)} kg</p>
                         </div>
-                        <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                          <p className="text-xs font-semibold text-slate-500 mb-1">Tare Weight</p>
-                          <p className="text-lg text-slate-800 font-bold">{formatPlainKg(detailBox.tareWeight)}</p>
+                        <div className="p-3 rounded-lg border border-slate-200 bg-white">
+                          <p className="text-xs font-semibold text-slate-500 mb-0.5">Tare Weight</p>
+                          <p className="text-slate-800 font-medium">{formatPlainKg(detailBox.tareWeight)} kg</p>
                         </div>
-                        <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                          <p className="text-xs font-semibold text-slate-500 mb-1">Net Weight</p>
-                          <p className="text-lg text-slate-800 font-bold">{formatPlainKg(detailBox.netWeight)}</p>
+                        <div className="p-3 rounded-lg border border-slate-200 bg-white">
+                          <p className="text-xs font-semibold text-slate-500 mb-0.5">Net Weight</p>
+                          <p className="text-slate-800 font-medium">{formatPlainKg(detailBox.netWeight)} kg</p>
                         </div>
-                        <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                          <p className="text-xs font-semibold text-slate-500 mb-1">{getCopsLabel()}</p>
-                          <p className="text-lg text-slate-800 font-bold">{formatInt(detailBox.cops)}</p>
+                        <div className="p-3 rounded-lg border border-slate-200 bg-white">
+                          <p className="text-xs font-semibold text-slate-500 mb-0.5">Cops</p>
+                          <p className="text-slate-800 font-medium">{formatInt(detailBox.cops)}</p>
                         </div>
-                        <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                          <p className="text-xs font-semibold text-slate-500 mb-1">{getCopsLabel()} Weight</p>
-                          <p className="text-lg text-slate-800 font-bold">{formatPlainKg(detailBox.copsWeight)}</p>
+                        <div className="p-3 rounded-lg border border-slate-200 bg-white">
+                          <p className="text-xs font-semibold text-slate-500 mb-0.5">Cops Weight</p>
+                          <p className="text-slate-800 font-medium">{formatPlainKg(detailBox.copsWeight)} kg</p>
                         </div>
-                        <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                          <p className="text-xs font-semibold text-slate-500 mb-1">Financial Year</p>
-                          <p className="text-lg text-slate-800 font-bold">{detailBox.financialYear}</p>
+                        <div className="p-3 rounded-lg border border-slate-200 bg-white">
+                          <p className="text-xs font-semibold text-slate-500 mb-0.5">Financial Year</p>
+                          <p className="text-slate-800 font-medium">{detailBox.financialYear}</p>
+                        </div>
+                        <div className="p-3 rounded-lg border border-slate-200 bg-white">
+                          <p className="text-xs font-semibold text-slate-500 mb-0.5">Created At</p>
+                          <p className="text-slate-800 font-medium">{formatDisplayDate(detailBox.createdAt)}</p>
+                        </div>
+                        <div className="p-3 rounded-lg border border-slate-200 bg-white">
+                          <p className="text-xs font-semibold text-slate-500 mb-0.5">Updated At</p>
+                          <p className="text-slate-800 font-medium">{formatDisplayDate(detailBox.updatedAt)}</p>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                       <div>
                         <label className="text-xs font-semibold text-slate-600 mb-1 block">Box Number</label>
-                        <input name="boxNumber" value={detailLocal.boxNumber} onChange={handleDetailChange} className={`w-full px-4 py-2.5 border rounded-lg bg-white transition-colors ${detailErrors.boxNumber ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`} />
+                        <input name="boxNumber" value={detailLocal.boxNumber} onChange={handleDetailChange} className={`w-full px-3 py-2 border rounded-lg bg-white transition-colors ${detailErrors.boxNumber ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`} />
                         {detailErrors.boxNumber && <p className="text-xs text-red-500 mt-1">{detailErrors.boxNumber}</p>}
                       </div>
                       <div>
                         <label className="text-xs font-semibold text-slate-600 mb-1 block">Description</label>
-                        <select name="descriptionOfGoods" value={detailLocal.descriptionOfGoods} onChange={handleDetailChange} className={`w-full px-4 py-2.5 border rounded-lg bg-white transition-colors ${detailErrors.descriptionOfGoods ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`}>
+                        <select name="descriptionOfGoods" value={detailLocal.descriptionOfGoods} onChange={handleDetailChange} className={`w-full px-3 py-2 border rounded-lg bg-white transition-colors ${detailErrors.descriptionOfGoods ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`}>
+                          <option value="">Select Description</option>
                           {availableDescriptions.map(desc => (<option key={desc} value={desc}>{desc}</option>))}
                         </select>
                         {detailErrors.descriptionOfGoods && <p className="text-xs text-red-500 mt-1">{detailErrors.descriptionOfGoods}</p>}
                       </div>
                       <div>
                         <label className="text-xs font-semibold text-slate-600 mb-1 block">Gross Weight (kg)</label>
-                        <input name="grossWeight" type="number" step="0.01" value={detailLocal.grossWeight} onChange={handleDetailChange} className={`w-full px-4 py-2.5 border rounded-lg bg-white transition-colors ${detailErrors.grossWeight ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`} />
+                        <input name="grossWeight" type="number" step="0.01" value={detailLocal.grossWeight} onChange={handleDetailChange} className={`w-full px-3 py-2 border rounded-lg bg-white transition-colors ${detailErrors.grossWeight ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`} />
                         {detailErrors.grossWeight && <p className="text-xs text-red-500 mt-1">{detailErrors.grossWeight}</p>}
                       </div>
                       <div>
                         <label className="text-xs font-semibold text-slate-600 mb-1 block">Tare Weight (kg)</label>
-                        <input name="tareWeight" type="number" step="0.01" value={detailLocal.tareWeight} onChange={handleDetailChange} className={`w-full px-4 py-2.5 border rounded-lg bg-white transition-colors ${detailErrors.tareWeight ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`} />
+                        <input name="tareWeight" type="number" step="0.01" value={detailLocal.tareWeight} onChange={handleDetailChange} className={`w-full px-3 py-2 border rounded-lg bg-white transition-colors ${detailErrors.tareWeight ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`} />
                         {detailErrors.tareWeight && <p className="text-xs text-red-500 mt-1">{detailErrors.tareWeight}</p>}
                       </div>
                       <div>
                         <label className="text-xs font-semibold text-slate-600 mb-1 block">Net Weight (kg)</label>
-                        <input type="text" value={detailLocal.netWeight} readOnly className="w-full px-4 py-2.5 border rounded-lg bg-slate-50 text-slate-800 border-slate-200" />
+                        <input type="text" value={detailLocal.netWeight} readOnly className="w-full px-3 py-2 border rounded-lg bg-slate-50 text-slate-800 border-slate-200" />
                       </div>
                       <div>
-                        <label className="text-xs font-semibold text-slate-600 mb-1 block">{getCopsLabel()}</label>
-                        <input name="cops" type="number" step="1" value={detailLocal.cops} onChange={handleDetailChange} className={`w-full px-4 py-2.5 border rounded-lg bg-white transition-colors ${detailErrors.cops ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`} />
+                        <label className="text-xs font-semibold text-slate-600 mb-1 block">Cops</label>
+                        <input name="cops" type="number" step="1" value={detailLocal.cops} onChange={handleDetailChange} className={`w-full px-3 py-2 border rounded-lg bg-white transition-colors ${detailErrors.cops ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`} />
                         {detailErrors.cops && <p className="text-xs text-red-500 mt-1">{detailErrors.cops}</p>}
                       </div>
                       <div>
-                        <label className="text-xs font-semibold text-slate-600 mb-1 block">{getCopsLabel()} Weight (kg)</label>
-                        <input name="copsWeight" type="number" step="0.01" value={detailLocal.copsWeight} onChange={handleDetailChange} className={`w-full px-4 py-2.5 border rounded-lg bg-white transition-colors ${detailErrors.copsWeight ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`} />
+                        <label className="text-xs font-semibold text-slate-600 mb-1 block">Cops Weight (kg)</label>
+                        <input name="copsWeight" type="number" step="0.01" value={detailLocal.copsWeight} onChange={handleDetailChange} className={`w-full px-3 py-2 border rounded-lg bg-white transition-colors ${detailErrors.copsWeight ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-violet-500`} />
                         {detailErrors.copsWeight && <p className="text-xs text-red-500 mt-1">{detailErrors.copsWeight}</p>}
                       </div>
                     </div>
@@ -1347,9 +1348,9 @@ const BoxListPage = () => {
                 </div>
 
                 {detailEditMode && !detailBox.isUsed && (
-                  <div className="px-6 py-4 border-t bg-slate-50 flex justify-end gap-3 rounded-b-2xl">
-                    <button onClick={() => setDetailEditMode(false)} className="px-5 py-2.5 rounded-xl bg-slate-200 text-slate-800 hover:bg-slate-300 transition-colors font-medium">Cancel</button>
-                    <button onClick={handleDetailSave} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors font-medium">Save Changes</button>
+                  <div className="p-4 border-t bg-slate-50 flex justify-end gap-3">
+                    <button onClick={() => setDetailEditMode(false)} className="px-4 py-2 rounded-lg bg-slate-200 text-slate-800 hover:bg-slate-300 transition-colors">Cancel</button>
+                    <button onClick={handleDetailSave} className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">Save Changes</button>
                   </div>
                 )}
               </motion.div>

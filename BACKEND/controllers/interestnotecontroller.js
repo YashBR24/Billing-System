@@ -8,8 +8,6 @@ const fs           = require('fs');
 const path         = require('path');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 
-const { getOrgDetails } = require('../utils/orgDetails');
-
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: Determine financial year string from a date
 // e.g. April 2025 → March 2026  →  "2025-26"
@@ -29,12 +27,11 @@ const getFinancialYear = (date = new Date()) => {
 // Format: 2025-26/IN/01  (IN prefix distinguishes from credit notes)
 // Resets to /IN/01 each new financial year
 // ─────────────────────────────────────────────────────────────────────────────
-const generateInterestNoteNumber = async (financialYear, organizationId) => {
+const generateInterestNoteNumber = async (financialYear) => {
   const prefix   = `${financialYear}/IN/`;
   const escaped  = prefix.replace(/-/g, '\\-').replace('/', '\\/').replace('/', '\\/');
   const lastNote = await InterestNote.findOne({
     interestNoteNumber: { $regex: `^${escaped}` },
-    organizationId,
   }).sort({ interestNoteNumber: -1 });
 
   let nextSeq = 1;
@@ -148,7 +145,7 @@ const calcLateDays = (dueDate, paymentDate) => {
 const getNextInterestNoteNumber = async (req, res) => {
   try {
     const financialYear = req.query.financialYear || getFinancialYear();
-    const nextNumber    = await generateInterestNoteNumber(financialYear, req.organizationId);
+    const nextNumber    = await generateInterestNoteNumber(financialYear);
     log(`Next interest note number requested: ${nextNumber}`, 'info');
     res.json({ interestNoteNumber: nextNumber, financialYear });
   } catch (error) {
@@ -234,7 +231,6 @@ const getLatePaidBillsByCompany = async (req, res) => {
   try {
     const query = {
       company: companyId,
-      organizationId: req.organizationId,
       status: 'Paid',
       dueDate: { $exists: true, $ne: null },
       paymentRecords: { $exists: true, $ne: [] },
@@ -627,12 +623,15 @@ const createInterestNote = async (req, res) => {
       });
     }
 
-    // ── Financial year (from note date, not bill) ───────────────────────────
+    // ── Financial year ────────────────────────────────────────────────────
     const resolvedDate = interestNoteDate
       ? new Date(interestNoteDate)
       : new Date();
 
-    const resolvedFY = getFinancialYear(resolvedDate);
+    const resolvedFY =
+      financialYear ||
+      bill.financialYear ||
+      getFinancialYear(bill.billDate);
 
     // ── Prevent duplicate note ────────────────────────────────────────────
     const existing = await InterestNote.findOne({
@@ -648,7 +647,7 @@ const createInterestNote = async (req, res) => {
     // ── Auto generate note number ─────────────────────────────────────────
     if (!interestNoteNumber) {
       interestNoteNumber =
-        await generateInterestNoteNumber(resolvedFY, req.organizationId);
+        await generateInterestNoteNumber(resolvedFY);
     } else {
       const expectedPrefix = `${resolvedFY}/IN/`;
 
@@ -660,7 +659,7 @@ const createInterestNote = async (req, res) => {
     }
 
     // ── Tax settings ──────────────────────────────────────────────────────
-    const settings = await Settings.getSettings(req.organizationId);
+    const settings = await Settings.getSettings();
 
     const resolvedTaxType =
       taxType || bill.taxType || 'CGST_SGST';
@@ -802,7 +801,6 @@ const createInterestNote = async (req, res) => {
 
       status: 'Pending',
       createdBy: req.user._id,
-      organizationId: req.organizationId,
     });
 
     const savedNote = await newInterestNote.save();
@@ -848,7 +846,7 @@ const createInterestNote = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getInterestNotes = async (req, res) => {
   const { companyId, startDate, endDate, status, financialYear } = req.query;
-  const query = { organizationId: req.organizationId };
+  const query = {};
 
   if (companyId)     query.company       = companyId;
   if (status)        query.status        = status;
@@ -887,7 +885,7 @@ const getInterestNotes = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getInterestNoteById = async (req, res) => {
   try {
-    const note = await InterestNote.findOne({ _id: req.params.id, organizationId: req.organizationId })
+    const note = await InterestNote.findById(req.params.id)
       .populate('company',      'name address gstNumber mobileNumber')
       .populate('originalBill', 'billNumber billDate')
       .populate('createdBy',    'username email');
@@ -926,10 +924,6 @@ const updateInterestNote = async (req, res) => {
       return res.status(404).json({ message: 'Interest note not found.' });
     }
 
-    if (note.organizationId && String(note.organizationId) !== String(req.organizationId)) {
-      return res.status(403).json({ message: 'Access denied. This resource does not belong to your organization.' });
-    }
-
     if (status !== undefined) note.status = status;
 
     const updatedNote = await note.save();
@@ -955,10 +949,6 @@ const deleteInterestNote = async (req, res) => {
     if (!note) {
       log(`Interest note deletion failed: Not found - ID: ${req.params.id}`, 'warn');
       return res.status(404).json({ message: 'Interest note not found.' });
-    }
-
-    if (note.organizationId && String(note.organizationId) !== String(req.organizationId)) {
-      return res.status(403).json({ message: 'Access denied. This resource does not belong to your organization.' });
     }
 
     // Unlink from bill
@@ -991,8 +981,7 @@ const generateInterestNotePdf = async (req, res) => {
   const noteId = req.params.id;
 
   try {
-    const org = await getOrgDetails(req.organizationId);
-    const note = await InterestNote.findOne({ _id: noteId, organizationId: req.organizationId })
+    const note = await InterestNote.findById(noteId)
       .populate('company')
       .populate('originalBill', 'billNumber billDate');
 
@@ -1090,7 +1079,7 @@ const generateInterestNotePdf = async (req, res) => {
 
     currentY -= Math.max(shreeGaneshHeight, interestNoteHeight) + 18;
 
-    const companyNameText = org.name;
+    const companyNameText = 'MAHADEV FILAMENTS';
     const companyNameFontSize = 25;
     currentY -= drawText(companyNameText, leftMargin, currentY, {
       font: boldFont,
@@ -1099,7 +1088,8 @@ const generateInterestNotePdf = async (req, res) => {
       color: rgb(0.1, 0.3, 0.5),
     });
 
-    const addressText = org.address;
+    const addressText =
+      'BLOCK NO - 15, 1ST FLOOR, AMBIKA VIBHAG - 2, NEAR NAVJIVAN CIRCLE, U.M. ROAD, SURAT - 395007';
     currentY -= drawText(addressText, leftMargin, currentY + 14, {
       size: 9,
       align: 'center',
@@ -1107,7 +1097,7 @@ const generateInterestNotePdf = async (req, res) => {
       spacingAfter: 4,
     });
 
-    const companyGSTIN = org.gstin;
+    const companyGSTIN = '24ABEFM9966E1ZZ';
     const companyStateCode = companyGSTIN.substring(0, 2);
     const gstinWithStateText = `GSTIN: ${companyGSTIN}     STATE CODE: ${companyStateCode}`;
     currentY -= drawText(gstinWithStateText, leftMargin, currentY + 14, {
@@ -1363,12 +1353,12 @@ const generateInterestNotePdf = async (req, res) => {
     const bankMaxWidth = contentWidth * 0.5;
 
     y -= drawText('Bank Details:', leftMargin, y, { font: boldFont, size: 12, spacingAfter: 4 });
-    y -= drawText(`Bank Name: ${org.bankName}`,         leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
-    y -= drawText(`Account Name: ${org.accountName}`,        leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
-    y -= drawText(`Account No.: ${org.accountNo}`,            leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
-    y -= drawText(`IFSC Code: ${org.ifsc}`,                 leftMargin, y, { size: 10, spacingAfter: 10, maxWidth: bankMaxWidth });
+    y -= drawText('Bank Name: Prime Bank of India',         leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
+    y -= drawText('Account Name: Mahadev Filaments',        leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
+    y -= drawText('Account No.: 10062001003372',            leftMargin, y, { size: 10, spacingAfter: 3, maxWidth: bankMaxWidth });
+    y -= drawText('IFSC Code: PMEC0100607',                 leftMargin, y, { size: 10, spacingAfter: 10, maxWidth: bankMaxWidth });
 
-    const forCoText = `For ${org.name}`;
+    const forCoText = 'For MAHADEV FILAMENTS';
     const forCoSize = 11;
     const forCoW    = boldFont.widthOfTextAtSize(forCoText, forCoSize);
     let   declY     = y;
@@ -1397,7 +1387,7 @@ const generateInterestNotePdf = async (req, res) => {
     // ── FOOTER ────────────────────────────────────────────────────────────────
     const footerY = 30;
     page.drawRectangle({ x: leftMargin, y: footerY - 8, width: contentWidth, height: 20, color: rgb(0.1, 0.3, 0.5), opacity: 0.1 });
-    const contactText = `Contact: ${org.contactPerson} | Phone: ${org.phone} | Email: ${org.email}`;
+    const contactText = 'Contact: Bharat Radiya | Phone: 9825492079 | Email: mahadevfilaments@gmail.com';
     const contactW    = font.widthOfTextAtSize(contactText, 9);
     drawText(contactText, leftMargin + (contentWidth - contactW) / 2, footerY, {
       size: 9, spacingAfter: 0, color: rgb(0.3, 0.3, 0.3),

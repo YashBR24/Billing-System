@@ -1,17 +1,24 @@
 const User = require('../models/User');
-const Organization = require('../models/Organization');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { log } = require('../middleware/logger');
 
-const generateToken = (payload, expiresIn) => {
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
+// Generate JWT
+const generateToken = (id, role) => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
+    expiresIn: '30d',
+  });
 };
 
-const signup = async (req, res) => {
-  const { username, email, password, role, organizationId } = req.body;
+// @desc    Register a new user (can be restricted to admin creation later)
+// @route   POST /api/auth/signup
+// @access  Public (for initial admin setup, then restrict)
+const    signup = async (req, res) => {
+  const { username, email, password, role } = req.body;
 
   try {
+    // For initial setup, allow creating an admin user.
+    // In a production scenario, you might have a separate script or a first-user-is-admin logic.
     const userExists = await User.findOne({ email });
 
     if (userExists) {
@@ -23,8 +30,7 @@ const signup = async (req, res) => {
       username,
       email,
       password,
-      role: role || 'admin',
-      organizationId: organizationId || null,
+      role: role || 'admin', // Default to admin for now, or pass 'admin' in request
     });
 
     if (user) {
@@ -34,7 +40,7 @@ const signup = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        token: generateToken({ id: user._id, role: user.role }, '30d'),
+        token: generateToken(user._id, user.role),
       });
     } else {
       log('Signup failed: Invalid user data', 'error');
@@ -46,7 +52,10 @@ const signup = async (req, res) => {
   }
 };
 
-const login = async (req, res) => {
+// @desc    Authenticate user & get token (Admin Login)
+// @route   POST /api/auth/login
+// @access  Public
+const    login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -64,131 +73,33 @@ const login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    if (user.role === 'superadmin') {
-      const limitedToken = generateToken(
-        {
-          id: user._id,
-          role: 'superadmin',
-          organizationId: null,
-          contextSet: false,
-        },
-        '1h'
-      );
-
-      log(`Super admin logged in: ${user.email}`, 'info');
-      return res.json({
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        token: limitedToken,
-        needsOrgSelection: true,
-      });
+    if (user.role !== 'admin') {
+      log(`Login attempt failed: Non-admin user tried to login - ${email}`, 'warn');
+      return res.status(403).json({ message: 'Access denied. Only admins can login.' });
     }
 
-    if (!user.organizationId) {
-      log(`Login attempt failed: User not assigned to organization - ${email}`, 'warn');
-      return res.status(403).json({ message: 'User not assigned to any organization' });
-    }
-
-    const org = await Organization.findById(user.organizationId);
-    if (!org || !org.isActive) {
-      log(`Login attempt failed: Organization not active - ${email}`, 'warn');
-      return res.status(403).json({ message: 'Your organization is not active. Contact admin.' });
-    }
-
-    const fullToken = generateToken(
-      {
-        id: user._id,
-        role: user.role,
-        organizationId: org._id,
-        organizationName: org.name,
-        organizationShortName: org.shortName,
-        terminology: org.terminology,
-        businessType: org.businessType,
-        logo: org.logo,
-        contextSet: true,
-      },
-      '8h'
-    );
-
-    log(`User logged in: ${user.email} -> ${org.name}`, 'info');
+    log(`Admin user logged in successfully: ${user.email}`, 'info');
     res.json({
       _id: user._id,
       username: user.username,
       email: user.email,
       role: user.role,
-      token: fullToken,
-      organization: {
-        id: org._id,
-        name: org.name,
-        shortName: org.shortName,
-        terminology: org.terminology,
-        businessType: org.businessType,
-        logo: org.logo,
-      },
-      needsOrgSelection: false,
+      token: generateToken(user._id, user.role),
     });
+
   } catch (error) {
     log(`Login error: ${error.message}`, 'error');
     res.status(500).json({ message: 'Server error during login' });
   }
 };
 
-const switchOrganization = async (req, res) => {
-  const { organizationId } = req.body;
-
+// @desc    Get all users (Admin only)
+// @route   GET /api/auth/users
+// @access  Private/Admin
+const    getAllUsers = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
-    if (!user || user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'Access denied. Super admin privileges required.' });
-    }
-
-    const org = await Organization.findById(organizationId);
-    if (!org) {
-      return res.status(404).json({ message: 'Organization not found.' });
-    }
-    if (!org.isActive) {
-      return res.status(400).json({ message: 'Organization is not active.' });
-    }
-
-    const scopedToken = generateToken(
-      {
-        id: user._id,
-        role: 'admin',
-        organizationId: org._id,
-        organizationName: org.name,
-        organizationShortName: org.shortName,
-        terminology: org.terminology,
-        businessType: org.businessType,
-        logo: org.logo,
-        contextSet: true,
-        isSuperAdminContext: true,
-      },
-      '8h'
-    );
-
-    log(`Super admin ${user.email} switched to ${org.name}`, 'info');
-    res.json({
-      token: scopedToken,
-      organization: {
-        id: org._id,
-        name: org.name,
-        shortName: org.shortName,
-        terminology: org.terminology,
-        businessType: org.businessType,
-        logo: org.logo,
-      },
-    });
-  } catch (error) {
-    log(`Switch organization error: ${error.message}`, 'error');
-    res.status(500).json({ message: 'Server error while switching organization.' });
-  }
-};
-
-const getAllUsers = async (req, res) => {
-  try {
-    const users = await User.find({}).select('-password');
+    // Ensure only admin can access this - this should be enforced by middleware on the route
+    const users = await User.find({}).select('-password'); // Exclude passwords
     log(`Admin ${req.user.email} fetched all users.`, 'info');
     res.json(users);
   } catch (error) {
@@ -197,104 +108,8 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-const createUser = async (req, res) => {
-  const { username, email, password, role, organizationId } = req.body;
-
-  try {
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'User already exists with this email' });
-    }
-
-    if (organizationId) {
-      const org = await Organization.findById(organizationId);
-      if (!org) {
-        return res.status(404).json({ message: 'Organization not found' });
-      }
-    }
-
-    const user = await User.create({
-      username,
-      email,
-      password,
-      role: role || 'user',
-      organizationId: organizationId || null,
-    });
-
-    const userObj = await User.findById(user._id).select('-password').populate('organizationId', 'name');
-    res.status(201).json(userObj);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while creating user' });
-  }
-};
-
-const updateUser = async (req, res) => {
-  const { role, organizationId, username } = req.body;
-
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    if (username) user.username = username;
-    if (role) user.role = role;
-    if (organizationId !== undefined) {
-      if (organizationId) {
-        const org = await Organization.findById(organizationId);
-        if (!org) {
-          return res.status(404).json({ message: 'Organization not found' });
-        }
-      }
-      user.organizationId = organizationId || null;
-    }
-
-    const updatedUser = await user.save();
-    const userObj = await User.findById(updatedUser._id).select('-password').populate('organizationId', 'name');
-    res.json(userObj);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while updating user' });
-  }
-};
-
-const deleteUser = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    if (user.role === 'superadmin') {
-      return res.status(403).json({ message: 'Cannot delete superadmin account' });
-    }
-
-    await User.findByIdAndDelete(req.params.id);
-    res.json({ message: 'User deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while deleting user' });
-  }
-};
-
-const getUsersByOrganization = async (req, res) => {
-  try {
-    const { organizationId } = req.query;
-    const query = {};
-    if (organizationId) query.organizationId = organizationId;
-
-    const users = await User.find(query).select('-password').populate('organizationId', 'name');
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while fetching users' });
-  }
-};
-
 module.exports = {
   signup,
   login,
-  switchOrganization,
-  getAllUsers,
-  createUser,
-  updateUser,
-  deleteUser,
-  getUsersByOrganization,
+  getAllUsers
 };

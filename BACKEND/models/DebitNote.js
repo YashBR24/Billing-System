@@ -19,17 +19,11 @@ const DebitNoteItemSchema = new mongoose.Schema(
 // ─────────────────────────────────────────────────────────────────────────────
 const DebitNoteSchema = new mongoose.Schema({
 
-  organizationId: {
-    type:     mongoose.Schema.Types.ObjectId,
-    ref:      'Organization',
-    required: false,
-    index:    true,
-  },
-
   // ── Identification ──────────────────────────────────────────────────────────
   debitNoteNumber: {
     type:     String,
     required: true,
+    unique:   true,
     trim:     true,
   },
   financialYear: {
@@ -161,7 +155,6 @@ DebitNoteSchema.index({ financialYear: 1 });
 DebitNoteSchema.index({ supplierCompany: 1, financialYear: 1 });
 DebitNoteSchema.index({ debitNoteDate: -1 });
 DebitNoteSchema.index({ status: 1 });
-DebitNoteSchema.index({ organizationId: 1, debitNoteNumber: 1 }, { unique: true });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pre-save: recalculate all financial totals from raw inputs
@@ -170,7 +163,7 @@ DebitNoteSchema.index({ organizationId: 1, debitNoteNumber: 1 }, { unique: true 
 // ─────────────────────────────────────────────────────────────────────────────
 DebitNoteSchema.pre('save', async function (next) {
   const Settings = mongoose.model('Settings');
-  const settings = await Settings.getSettings(this.organizationId);
+  const settings = await Settings.getSettings();
 
   // Sub-total from items
   this.subTotalAmount = parseFloat(

@@ -21,11 +21,11 @@ const ItemConfigSchema = new mongoose.Schema({
 }, {_id: true}); // Ensure _id is created for subdocuments for easier management
 
 const SettingsSchema = new mongoose.Schema({
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: true,
-    unique: true,
+  // Using a fixed ID for the single settings document pattern
+  singletonId: {
+    type: String,
+    default: 'global_settings',
+    unique: true, // Ensures only one settings document
   },
   sgstPercentage: {
     type: Number,
@@ -72,20 +72,18 @@ SettingsSchema.pre('findOneAndUpdate', function(next) {
 });
 
 // Method to get or create the settings document
-SettingsSchema.statics.getSettings = async function(organizationId) {
-  if (!organizationId) {
-    throw new Error('organizationId is required to get settings');
-  }
-  let settings = await this.findOne({ organizationId });
+SettingsSchema.statics.getSettings = async function() {
+  let settings = await this.findOne({ singletonId: 'global_settings' });
   if (!settings) {
-    settings = await this.create({
-      organizationId,
-      sgstPercentage: 6,
-      cgstPercentage: 6,
-      igstPercentage: 12,
-      jobCgstPercentage: 2.5,
-      jobSgstPercentage: 2.5,
-      itemConfigurations: []
+    settings = await this.create({ 
+        singletonId: 'global_settings',
+        // Initialize with some sensible defaults or empty arrays
+        sgstPercentage: 6, 
+        cgstPercentage: 6,
+        igstPercentage: 12,
+        jobCgstPercentage: 2.5,
+        jobSgstPercentage: 2.5,
+        itemConfigurations: [] 
     });
   }
   return settings;

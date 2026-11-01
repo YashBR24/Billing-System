@@ -7,15 +7,10 @@ const BoxDetailSchema = new mongoose.Schema({
 }, { _id: true });
 
 const ChallanSchema = new mongoose.Schema({
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: false,
-    index: true,
-  },
   challanNumber: {
     type: String,
     required: true,
+    unique: true,
     trim: true,
   },
   financialYear: {
@@ -47,6 +42,10 @@ const ChallanSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: 'direct',
+  },
+  withCops: {
+    type: Boolean,
+    default: true,
   },
   boxDetails: [BoxDetailSchema],
   totalNetWeight: {
@@ -92,11 +91,6 @@ ChallanSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
-
-
-ChallanSchema.index({ organizationId: 1, challanNumber: 1 }, { unique: true });
-ChallanSchema.index({ financialYear: 1 });
-ChallanSchema.index({ createdAt: -1 });
 
 
 module.exports = mongoose.model('Challan', ChallanSchema);

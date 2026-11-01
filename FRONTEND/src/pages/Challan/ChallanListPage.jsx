@@ -19,12 +19,10 @@ import {
   SlidersHorizontal,
   AlertCircle,
 } from 'lucide-react';
-import AuthService from '../../services/AuthService';
 import ChallanService from '../../services/ChallanService';
 import CompanyService from '../../services/CompanyService';
 import SettingsService from '../../services/SettingsService';
 import BoxService from '../../services/BoxService';
-import { getCopsLabel } from '../../utils/terminology';
 import fileDownload from 'js-file-download';
 
 const ChallanListPage = () => {
@@ -57,17 +55,13 @@ const ChallanListPage = () => {
   const [filterStatus, setFilterStatus] = useState('');
 
   // Form states
-  const getInitialBoxDetail = () => ({
-    boxNumber: '', netWeight: '', cops: '',
-  });
-
   const [formData, setFormData] = useState({
     challanNumber: '',
     challanDate: new Date().toISOString().split('T')[0],
     companyId: '',
     descriptionOfGoods: '',
     broker: 'direct',
-    boxDetails: [getInitialBoxDetail()],
+    boxDetails: [{ boxNumber: '', netWeight: '', cops: '' }],
   });
   const [entryMode, setEntryMode] = useState('manual');
   const [selectedBoxes, setSelectedBoxes] = useState([]);
@@ -248,7 +242,7 @@ const fetchChallans = useCallback(async () => {
         boxDetails: data.boxDetails.map(box => ({
           boxNumber: box.boxNumber,
           netWeight: box.netWeight.toString(),
-          cops: box.cops.toString(),
+          cops: box.cops.toString()
         })) || [{ boxNumber: '', netWeight: '', cops: '' }]
       });
       setOriginalChallanNumber(data.challanNumber);
@@ -449,7 +443,7 @@ const fetchChallans = useCallback(async () => {
     const res = await ChallanService.getNextChallanNumber(fy);
 
     setFormData({
-      challanNumber: res.data.challanNumber,
+      challanNumber: res.data.challanNumber, // 
       challanDate: today.toISOString().split('T')[0],
       companyId: '',
       descriptionOfGoods: '',
@@ -479,10 +473,9 @@ const fetchChallans = useCallback(async () => {
 
   // Add box
   const addBox = () => {
-    const newBox = { boxNumber: '', netWeight: '', cops: '' };
     setFormData({
       ...formData,
-      boxDetails: [...formData.boxDetails, newBox]
+      boxDetails: [...formData.boxDetails, { boxNumber: '', netWeight: '', cops: '' }]
     });
   };
 
@@ -514,7 +507,7 @@ const fetchChallans = useCallback(async () => {
       formData.boxDetails.forEach((box, index) => {
         if (!box.boxNumber.trim()) errors[`boxNumber_${index}`] = 'Box number is required.';
         if (!box.netWeight || isNaN(parseFloat(box.netWeight)) || parseFloat(box.netWeight) <= 0) errors[`netWeight_${index}`] = 'Valid net weight is required.';
-        if (!box.cops || isNaN(parseInt(box.cops)) || parseInt(box.cops) <= 0) errors[`cops_${index}`] = `Valid ${getCopsLabel().toLowerCase()} count is required.`;
+        if (!box.cops || isNaN(parseInt(box.cops)) || parseInt(box.cops) <= 0) errors[`cops_${index}`] = 'Valid cops count is required.';
       });
     }
 
@@ -1379,7 +1372,7 @@ const handleFormSubmit = async (e) => {
                               type="number"
                               value={box.cops}
                               onChange={(e) => handleBoxChange(index, 'cops', e.target.value)}
-                              placeholder={`${getCopsLabel()} *`}
+                              placeholder="Cops *"
                               step="1"
                               className={`w-full p-2 border rounded-lg text-black ${formErrors[`cops_${index}`] ? 'border-red-500' : 'border-slate-200'}`}
                             />
@@ -1419,7 +1412,7 @@ const handleFormSubmit = async (e) => {
                                 <th className="px-2 py-2 text-left">Select</th>
                                 <th className="px-2 py-2 text-left">Box No.</th>
                                 <th className="px-2 py-2 text-left">Weight</th>
-                                <th className="px-2 py-2 text-left">{getCopsLabel()}</th>
+                                <th className="px-2 py-2 text-left">Cops</th>
                                 <th className="px-2 py-2 text-left">Grade</th>
                               </tr>
                             </thead>
@@ -1454,7 +1447,7 @@ const handleFormSubmit = async (e) => {
                     <div className="space-y-1 text-sm text-black">
                       <p>Total Boxes: {formMode === 'create' && entryMode === 'box' ? selectedBoxes.length : formData.boxDetails.length}</p>
                       <p>Total Net Weight: {totals.totalNetWeight} kg</p>
-                      <p>Total {getCopsLabel()}: {totals.totalCops}</p>
+                      <p>Total Cops: {totals.totalCops}</p>
                     </div>
                   </div>
 
@@ -1488,6 +1481,7 @@ const handleFormSubmit = async (e) => {
     if (!isViewOpen || !selectedChallan) return null;
 
     const { companyDetailsSnapshot: company, boxDetails = [] } = selectedChallan;
+    const withCops = selectedChallan.withCops !== undefined ? selectedChallan.withCops : true;
 
     return (
       <AnimatePresence>
@@ -1528,6 +1522,7 @@ const handleFormSubmit = async (e) => {
                   <div className="text-left md:text-right">
                     <p className="text-sm text-slate-600"><span className="font-medium">Date:</span> {formatDisplayDate(selectedChallan.challanDate)}</p>
                     <p className="text-sm text-slate-600"><span className="font-medium">Broker:</span> {selectedChallan.broker || 'Direct'}</p>
+                    <p className="text-sm text-slate-600"><span className="font-medium">Type:</span> {withCops ? 'With Cops' : 'Without Cops'}</p>
                     <p className="text-sm font-semibold mt-1">
                       <span className="font-medium">Status:</span>{' '}
                       <span className={`inline-flex px-3 py-1 rounded-lg text-xs border ${getStatusColor(selectedChallan.isUsed)}`}>
@@ -1545,24 +1540,28 @@ const handleFormSubmit = async (e) => {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 mb-2">Box Details:</h3>
                   <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-slate-200">
-                        <thead className="bg-slate-50">
-                          <tr>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Box Number</th>
-                            <th className="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Net Weight (kg)</th>
-                            <th className="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">{getCopsLabel()}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200">
-                          {boxDetails.map((box, index) => (
-                            <tr key={index}>
-                              <td className="px-4 py-2 text-sm text-slate-700">{box.boxNumber}</td>
-                              <td className="px-4 py-2 text-sm text-slate-500 text-right">{box.netWeight?.toFixed(2) || '0.00'}</td>
+                    <table className="min-w-full divide-y divide-slate-200">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Box Number</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Net Weight (kg)</th>
+                          {withCops && (
+                            <th className="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Cops</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {boxDetails.map((box, index) => (
+                          <tr key={index}>
+                            <td className="px-4 py-2 text-sm text-slate-700">{box.boxNumber}</td>
+                            <td className="px-4 py-2 text-sm text-slate-500 text-right">{box.netWeight?.toFixed(2) || '0.00'}</td>
+                            {withCops && (
                               <td className="px-4 py-2 text-sm text-slate-700 text-right">{box.cops}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
@@ -1574,7 +1573,7 @@ const handleFormSubmit = async (e) => {
                   <div className="text-sm text-black">
                     <p>Total Boxes: {boxDetails.length}</p>
                     <p>Total Net Weight: {selectedChallan.totalNetWeight?.toFixed(2) || '0.00'} kg</p>
-                    <p>Total {getCopsLabel()}: {selectedChallan.totalCops || '0'}</p>
+                    {withCops && <p>Total Cops: {selectedChallan.totalCops || '0'}</p>}
                   </div>
                 </div>
 

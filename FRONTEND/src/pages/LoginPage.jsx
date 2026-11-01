@@ -19,12 +19,8 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      const response = await AuthService.login(email, password);
-      if (response.needsOrgSelection) {
-        navigate('/select-organization');
-      } else {
-        navigate('/dashboard');
-      }
+      await AuthService.login(email, password);
+      navigate('/dashboard');
     } catch (error) {
       const resMessage =
         (error.response &&

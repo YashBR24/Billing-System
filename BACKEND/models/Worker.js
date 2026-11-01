@@ -1,12 +1,6 @@
 const mongoose = require('mongoose');
 
 const WorkerSchema = new mongoose.Schema({
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: false,
-    index: true,
-  },
   name: {
     type: String,
     required: [true, 'Please add worker name'],

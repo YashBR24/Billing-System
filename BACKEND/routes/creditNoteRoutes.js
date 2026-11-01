@@ -1,3 +1,36 @@
+// const express = require('express');
+// const router = express.Router();
+// const {
+//   createCreditNote,
+//   getCreditNotes,
+//   getCreditNoteById,
+//   updateCreditNote,
+//   deleteCreditNote,
+//   generateCreditNotePdf
+// } = require('../controllers/creditNoteController');
+// const { protect, isAdmin } = require('../middleware/authMiddleware');
+
+// // All routes in this file are protected and require admin access
+// router.use(protect);
+// router.use(isAdmin);
+
+// // Main CRUD routes
+// router.route('/')
+//   .post(createCreditNote)  // POST /api/credit-notes - Create new credit note
+//   .get(getCreditNotes);     // GET /api/credit-notes - Get all credit notes with filters
+
+// router.route('/:id')
+//   .get(getCreditNoteById)   // GET /api/credit-notes/:id - Get single credit note
+//   .put(updateCreditNote)    // PUT /api/credit-notes/:id - Update credit note
+//   .delete(deleteCreditNote); // DELETE /api/credit-notes/:id - Delete credit note
+
+// // PDF generation route
+// router.route('/:id/pdf')
+//   .get(generateCreditNotePdf); // GET /api/credit-notes/:id/pdf - Generate and download PDF
+
+// module.exports = router;
+
+
 const express = require('express');
 const router = express.Router();
 const {

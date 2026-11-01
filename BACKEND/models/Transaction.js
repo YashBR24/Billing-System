@@ -1,12 +1,6 @@
 const mongoose = require('mongoose');
 
 const TransactionSchema = new mongoose.Schema({
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: false,
-    index: true,
-  },
   paymentDate: {
     type: Date,
     required: [true, 'Payment date is required.'],

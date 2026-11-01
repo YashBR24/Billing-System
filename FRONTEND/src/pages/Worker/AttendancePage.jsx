@@ -26,209 +26,133 @@ import {
 import AttendanceService from '../../services/AttendanceService';
 import WorkerService from '../../services/WorkerService';
 
-const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-const toDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-const groupDatesIntoWeeks = (dates) => {
-  if (!dates.length) return [];
-  const sorted = [...dates].sort();
-  const firstDate = new Date(sorted[0] + 'T00:00:00');
-  const firstDow = firstDate.getDay(); // 0=Sun
-  const offset = firstDow === 0 ? 6 : firstDow - 1; // Mon=0
-
-  const weeks = [];
-  let week = [];
-  for (let i = 0; i < offset; i++) week.push(null);
-
-  sorted.forEach(ds => {
-    const d = new Date(ds + 'T00:00:00');
-    const dow = d.getDay();
-    const monDow = dow === 0 ? 6 : dow - 1;
-    if (monDow === 0 && week.length > 0 && week.length < 7) {
-      while (week.length < 7) week.push(null);
-      weeks.push(week);
-      week = [];
-    }
-    week.push(ds);
-    if (week.length === 7) {
-      weeks.push(week);
-      week = [];
-    }
-  });
-  if (week.length) {
-    while (week.length < 7) week.push(null);
-    weeks.push(week);
-  }
-  return weeks;
-};
-
-const CalendarCell = ({ dateStr, dayStatus, nightStatus }) => {
-  const d = dateStr ? new Date(dateStr + 'T00:00:00') : null;
-  const dayNum = d ? d.getDate() : '';
-  const hasAny = dayStatus || nightStatus;
-
-  const getBg = (s) => s === 'Present' ? 'bg-emerald-100 text-emerald-700'
-    : s === 'Absent' ? 'bg-red-100 text-red-700'
-    : s === 'Half Day' ? 'bg-amber-100 text-amber-700'
-    : s === 'Leave' ? 'bg-blue-100 text-blue-700'
-    : 'bg-white text-slate-400';
-
-  const hasBoth = dayStatus && nightStatus;
-  const dayBg = getBg(dayStatus);
-  const nightBg = getBg(nightStatus);
-
-  // Determine dominant border color from whichever status is present
-  const borderColor = dayStatus ? dayBg.split(' ')[0] : (nightStatus ? nightBg.split(' ')[0] : 'border-slate-200');
-
-  return (
-    <div className={`w-10 h-10 sm:w-11 sm:h-11 flex flex-col items-center justify-center rounded-md border ${borderColor} text-[9px] leading-tight relative`}>
-      <span className="text-[8px] font-semibold text-slate-500 absolute top-0.5 left-1">{dayNum}</span>
-      {hasBoth ? (
-        <div className="flex flex-col items-center mt-1 gap-0.5">
-          <span className={`px-1 rounded text-[7px] font-bold ${dayBg}`}>D:{dayStatus[0]}</span>
-          <span className={`px-1 rounded text-[7px] font-bold ${nightBg}`}>N:{nightStatus[0]}</span>
-        </div>
-      ) : dayStatus ? (
-        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${dayBg}`}>{dayStatus[0]}</span>
-      ) : nightStatus ? (
-        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${nightBg}`}>{nightStatus[0]}</span>
-      ) : (
-        <span className="text-[8px] text-slate-400 mt-1">—</span>
-      )}
-    </div>
-  );
-};
-
 const AttendanceTable = ({ groupedData, allDates, getStatusCellStyle, computeSummary }) => {
-  const totalSummary = Object.values(groupedData).reduce((acc, { records }) => {
-    const s = computeSummary(records);
-    acc.day.Present += s.day.Present;
-    acc.day.Absent += s.day.Absent;
-    acc.day['Half Day'] += s.day['Half Day'];
-    acc.day.Leave += s.day.Leave;
-    acc.night.Present += s.night.Present;
-    acc.night.Absent += s.night.Absent;
-    acc.night['Half Day'] += s.night['Half Day'];
-    acc.night.Leave += s.night.Leave;
-    return acc;
-  }, { day: { Present: 0, Absent: 0, 'Half Day': 0, Leave: 0 }, night: { Present: 0, Absent: 0, 'Half Day': 0, Leave: 0 } });
-
   return (
-    <div className="bg-white">
-      {/* Overall Summary Header */}
-      <div className="p-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
-        <div className="flex items-center gap-2 mb-2">
-          <BarChart3 className="h-4 w-4 text-violet-600" />
-          <span className="text-xs font-semibold text-slate-700">Overall Summary</span>
-        </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-medium text-slate-500">Day:</span>
-            {['Present','Absent','Half Day','Leave'].map(s => {
-              const val = totalSummary.day[s];
-              const cls = s === 'Present' ? 'bg-emerald-50 text-emerald-700'
-                : s === 'Absent' ? 'bg-red-50 text-red-700'
-                : s === 'Half Day' ? 'bg-amber-50 text-amber-700'
-                : 'bg-blue-50 text-blue-700';
-              return <span key={s} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${cls}`}>{s[0]} {val}</span>;
-            })}
-          </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-medium text-slate-500">Night:</span>
-            {['Present','Absent','Half Day','Leave'].map(s => {
-              const val = totalSummary.night[s];
-              const cls = s === 'Present' ? 'bg-emerald-50 text-emerald-700'
-                : s === 'Absent' ? 'bg-red-50 text-red-700'
-                : s === 'Half Day' ? 'bg-amber-50 text-amber-700'
-                : 'bg-blue-50 text-blue-700';
-              return <span key={s} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${cls}`}>{s[0]} {val}</span>;
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Per-Worker Calendar Grid + Summary */}
-      <div className="divide-y divide-slate-200">
-        {Object.values(groupedData).map(({ worker, records }) => {
-          const summary = computeSummary(records);
-          const weeks = groupDatesIntoWeeks(allDates);
-          const totalDays = summary.day.Present + summary.day.Absent + summary.day['Half Day'] + summary.day.Leave;
-          const totalNights = summary.night.Present + summary.night.Absent + summary.night['Half Day'] + summary.night.Leave;
-
-          return (
-            <div key={worker._id} className="p-3">
-              {/* Worker Header */}
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-3.5 w-3.5 text-slate-500" />
-                <span className="text-xs text-slate-500 font-mono">{worker.workerId || 'N/A'}</span>
-                <span className="text-sm font-semibold text-slate-800">{worker.name}</span>
-              </div>
-
-              <div className="flex flex-col lg:flex-row gap-4">
-                {/* Calendar Grid */}
-                <div className="flex-shrink-0">
-                  {/* Day headers */}
-                  <div className="grid grid-cols-7 gap-[2px] mb-[2px]">
-                    {DAYS_SHORT.map(d => (
-                      <div key={d} className="w-10 sm:w-11 text-center text-[9px] font-semibold text-slate-400 uppercase">{d}</div>
-                    ))}
+    <div className="relative  overflow-hidden bg-white">
+      <div className="flex">
+        {/* Fixed Worker Details Column */}
+        <div className="max-w-[250px] flex-shrink-0 border-r border-slate-200 bg-white z-20">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-slate-50 to-slate-100 sticky top-0">
+              <tr>
+                <th className="px-4 py-6 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Worker Details
                   </div>
-                  {/* Week rows */}
-                  <div className="space-y-[2px]">
-                    {weeks.map((week, wi) => (
-                      <div key={wi} className="grid grid-cols-7 gap-[2px]">
-                        {week.map((dateStr, di) => {
-                          if (!dateStr) return <div key={`e-${di}`} className="w-10 sm:w-11 h-10 sm:h-11" />;
-                          const record = records.find(r => r.date.split('T')[0] === dateStr);
-                          return (
-                            <CalendarCell
-                              key={dateStr}
-                              dateStr={dateStr}
-                              dayStatus={record?.shifts?.day?.status}
-                              nightStatus={record?.shifts?.night?.status}
-                            />
-                          );
-                        })}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {Object.values(groupedData).map(({ worker }, index) => (
+                <tr key={worker._id} className="hover:bg-slate-50/80">
+                  <td className="flex flex-row gap-3 px-4 py-5 whitespace-nowrap">
+                    <div className="text-sm text-slate-500 mt-0.5">{worker.workerId || 'N/A'}</div>
+                    <div className="font-medium text-slate-800">{worker.name}</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Scrollable Dates Section */}
+        <div className="overflow-x-auto flex-grow [&::-webkit-scrollbar]:hidden">
+          <div className="inline-block max-w-[100px]">
+            <table className="max-w-full">
+              <thead className="bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0">
+                <tr>
+                  {allDates.map(date => (
+                    <th key={date} className="px-2 py-5.5 text-center border-x border-slate-200/50 min-w-[100px]">
+                      <div className="text-sm font-semibold text-slate-700">
+                        {new Date(date).getUTCDate()} {new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {Object.values(groupedData).map(({ worker, records }) => (
+                  <tr key={worker._id} className="hover:bg-slate-50/80">
+                    {allDates.map(date => {
+                      const record = records.find(r => r.date.split('T')[0] === date);
+                      const dayStatus = record?.shifts?.day?.status;
+                      const nightStatus = record?.shifts?.night?.status;
+                      return (
+                        <td key={`${worker._id}-${date}`} className="px-2 py-4 text-center border-x border-slate-200/50">
+                          <div className="space-y-1">
+                            {dayStatus && (
+                              <div className={`px-2 py-1 rounded-lg text-xs font-medium ${getStatusCellStyle(dayStatus)}`}>
+                                D: {dayStatus}
+                              </div>
+                            )}
+                            {nightStatus && (
+                              <div className={`px-2 py-1 rounded-lg text-xs font-medium ${getStatusCellStyle(nightStatus)}`}>
+                                N: {nightStatus}
+                              </div>
+                            )}
+                            {!dayStatus && !nightStatus && (
+                              <div className="px-2 py-1 text-slate-400">—</div>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-                {/* Summary Side Panel */}
-                <div className="flex flex-row lg:flex-col gap-3 flex-shrink-0">
-                  {/* Day Shift */}
-                  <div>
-                    <div className="text-[10px] font-semibold text-slate-500 mb-1">Day</div>
-                    <div className="flex flex-wrap gap-1">
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-semibold">P {summary.day.Present}</span>
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-50 text-red-700 text-[10px] font-semibold">A {summary.day.Absent}</span>
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-semibold">H {summary.day['Half Day']}</span>
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-semibold">L {summary.day.Leave}</span>
+        {/* Fixed Summary Column */}
+        <div className="max-w-[700px] flex-shrink-0 border-l border-slate-200 bg-white z-20">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0">
+              <tr>
+                <th colSpan="4" className="px-3 py-2 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider border-x border-slate-200/50 bg-emerald-50/50">
+                  Day Shift Summary
+                </th>
+                <th colSpan="4" className="px-3 py-2 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider border-x border-slate-200/50 bg-blue-50/50">
+                  Night Shift Summary
+                </th>
+              </tr>
+              <tr>
+                {['Present', 'Absent', 'Half Day', 'Leave'].map(status => (
+                  <th key={`day-${status}`} className="px-3 py-2 text-center text-xs font-medium text-slate-600 tracking-wider border-x border-slate-200/50 bg-emerald-50/50">
+                    {status}
+                  </th>
+                ))}
+                {['Present', 'Absent', 'Half Day', 'Leave'].map(status => (
+                  <th key={`night-${status}`} className="px-3 py-2 text-center text-xs font-medium text-slate-600 tracking-wider border-x border-slate-200/50 bg-blue-50/50">
+                    {status}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {Object.values(groupedData).map(({ worker, records }) => {
+                const summary = computeSummary(records);
+                return (
+                  <tr key={worker._id} className="hover:bg-slate-50/80">
+                    <td className="px-3 py-5 text-center text-sm font-semibold border-x border-slate-200/50 bg-emerald-50/30 text-emerald-700">
+                    <div className="px-2 py-1 text-xs font-medium">
+                    {summary.day.Present}
                     </div>
-                  </div>
-                  {/* Night Shift */}
-                  <div>
-                    <div className="text-[10px] font-semibold text-slate-500 mb-1">Night</div>
-                    <div className="flex flex-wrap gap-1">
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-semibold">P {summary.night.Present}</span>
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-50 text-red-700 text-[10px] font-semibold">A {summary.night.Absent}</span>
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-semibold">H {summary.night['Half Day']}</span>
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-semibold">L {summary.night.Leave}</span>
-                    </div>
-                  </div>
-                  {/* Total */}
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] font-semibold text-slate-500">Total:</span>
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-violet-100 text-violet-700 text-xs font-bold">
-                      {totalDays + totalNights}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+                    </td>
+                    <td className="px-3 py-5 text-center text-sm font-semibold border-x border-slate-200/50 bg-emerald-50/30 text-red-700">{summary.day.Absent}</td>
+                    <td className="px-3 py-5 text-center text-sm font-semibold border-x border-slate-200/50 bg-emerald-50/30 text-amber-700">{summary.day['Half Day']}</td>
+                    <td className="px-3 py-5 text-center text-sm font-semibold border-x border-slate-200/50 bg-emerald-50/30 text-blue-700">{summary.day.Leave}</td>
+                    <td className="px-3 py-5 text-center text-sm font-semibold border-x border-slate-200/50 bg-blue-50/30 text-emerald-700">{summary.night.Present}</td>
+                    <td className="px-3 py-5 text-center text-sm font-semibold border-x border-slate-200/50 bg-blue-50/30 text-red-700">{summary.night.Absent}</td>
+                    <td className="px-3 py-5 text-center text-sm font-semibold border-x border-slate-200/50 bg-blue-50/30 text-amber-700">{summary.night['Half Day']}</td>
+                    <td className="px-3 py-4 text-center text-sm font-semibold border-x border-slate-200/50 bg-blue-50/30 text-blue-700">{summary.night.Leave}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -326,19 +250,12 @@ const CombinedAttendancePage = () => {
   const [reportData, setReportData] = useState([]);
   const [isReportLoading, setIsReportLoading] = useState(false);
 
-  const toLocalDateStr = (d) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
   useEffect(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    setStartDate(toLocalDateStr(start));
-    setEndDate(toLocalDateStr(end));
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 30);
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(end.toISOString().split('T')[0]);
   }, []);
 
   const fetchAttendanceReport = useCallback(async () => {
@@ -397,41 +314,20 @@ const CombinedAttendancePage = () => {
     return summary;
   };
 
-  const groupedData = (() => {
-    const map = {};
-    reportData.forEach(record => {
-      if (!map[record.worker._id]) {
-        map[record.worker._id] = { worker: record.worker, records: [] };
+  const groupedData = Object.values(
+    reportData.reduce((acc, record) => {
+      if (!acc[record.worker._id]) {
+        acc[record.worker._id] = { worker: record.worker, records: [] };
       }
-      map[record.worker._id].records.push(record);
-    });
-    // Only add workers without records when showing ALL workers
-    if (!selectedWorkerId) {
-      workersForReport.forEach(w => {
-        if (!map[w._id]) {
-          map[w._id] = { worker: w, records: [] };
-        }
-      });
-    }
-    return Object.values(map).sort((a, b) => {
-      const idA = parseInt(a.worker.workerId?.replace(/\D/g, '') || '0', 10);
-      const idB = parseInt(b.worker.workerId?.replace(/\D/g, '') || '0', 10);
-      return idA - idB;
-    });
-  })();
-  const allDates = (() => {
-    if (!startDate || !endDate) return [];
-    const dates = [];
-    const parts = startDate.split('-').map(Number);
-    const eparts = endDate.split('-').map(Number);
-    const cur = new Date(parts[0], parts[1] - 1, parts[2]);
-    const end = new Date(eparts[0], eparts[1] - 1, eparts[2]);
-    while (cur <= end) {
-      dates.push(toLocalDateStr(cur));
-      cur.setDate(cur.getDate() + 1);
-    }
-    return dates;
-  })();
+      acc[record.worker._id].records.push(record);
+      return acc;
+    }, {})
+  ).sort((a, b) => {
+    const idA = parseInt(a.worker.workerId?.replace(/\D/g, '') || '0', 10);
+    const idB = parseInt(b.worker.workerId?.replace(/\D/g, '') || '0', 10);
+    return idA - idB;
+  });
+  const allDates = [...new Set(reportData.map(record => record.date.split('T')[0]))].sort();
 
   // Get attendance statistics for mark attendance mode
   const getAttendanceStats = () => {
@@ -978,10 +874,10 @@ const CombinedAttendancePage = () => {
               </div>
             </motion.div>
 
-            {/* Download PDF Buttons */}
+            {/* Download PDF Button */}
             {!isReportLoading && reportData.length > 0 && (
               <motion.div 
-                className="mb-6 flex flex-wrap gap-3"
+                className="mb-6 flex justify-start"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.2 }}
@@ -993,7 +889,7 @@ const CombinedAttendancePage = () => {
                   whileTap={{ scale: 0.98 }}
                 >
                   <Download className="h-5 w-5" />
-                  Download All PDF
+                  Download PDF Report
                 </motion.button>
               </motion.div>
             )}
@@ -1049,7 +945,7 @@ const CombinedAttendancePage = () => {
             )}
 
             {/* Attendance Report Section */}
-            {!isReportLoading && (reportData.length > 0 || workersForReport.length > 0) && (
+            {!isReportLoading && reportData.length > 0 && (
               <motion.div 
                 className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50 overflow-hidden"
                 initial={{ opacity: 0, y: 20 }}

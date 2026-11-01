@@ -9,15 +9,10 @@ const BillItemSchema = new mongoose.Schema({
 }, { _id: true });
 
 const BillSchema = new mongoose.Schema({
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: false,
-    index: true,
-  },
   billNumber: {
     type: String,
     required: true,
+    unique: true,
     trim: true,
   },
   financialYear: {
@@ -43,16 +38,6 @@ const BillSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: '',
-  },
-  totalBoxes: {
-    type: Number,
-    default: 0,
-    min: 0,
-  },
-  totalCops: {
-    type: Number,
-    default: 0,
-    min: 0,
   },
   dueDate: {
     type: Date,
@@ -179,7 +164,7 @@ const BillSchema = new mongoose.Schema({
     _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
     paymentDate: { type: Date, required: true },
     amountPaid: { type: Number, required: true, min: 0.01 },
-    transactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction', required: true },
+    transactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction', required: true, unique: true, sparse: true },
     paymentMethod: String,
     referenceNumber: String,
     notes: String,
@@ -216,11 +201,9 @@ const BillSchema = new mongoose.Schema({
   },
 });
 
-BillSchema.index({ organizationId: 1, financialYear: 1, billNumber: 1 }, { unique: true });
-
 BillSchema.pre('save', async function(next) {
   const Settings = mongoose.model('Settings');
-  const settings = await Settings.getSettings(this.organizationId);
+  const settings = await Settings.getSettings();
 
     // 1️⃣ Subtotal
     this.subTotalAmount = (this.items || []).reduce(
@@ -246,18 +229,10 @@ BillSchema.pre('save', async function(next) {
   this.jobSgstAmount = 0;
 
   // 4️⃣ Apply tax (WITH 2 DECIMAL ROUNDING)
-  // NOTE: settings default percentages are applied ONLY when creating a new bill.
-  // For existing bills the stored percentages are preserved, otherwise a later
-  // transaction/update (e.g. recording a payment) would silently recompute the
-  // total with the CURRENT settings and could wrongly flip status to "Paid".
   if (this.taxType === 'CGST_SGST') {
 
-    if (this.isNew) {
-      this.cgstPercentage = settings.cgstPercentage;
-      this.sgstPercentage = settings.sgstPercentage;
-    }
-    this.cgstPercentage = Number(this.cgstPercentage) || 0;
-    this.sgstPercentage = Number(this.sgstPercentage) || 0;
+    this.cgstPercentage = settings.cgstPercentage;
+    this.sgstPercentage = settings.sgstPercentage;
 
     this.cgstAmount = Number(
       ((this.amountAfterDiscount * this.cgstPercentage) / 100).toFixed(2)
@@ -270,10 +245,7 @@ BillSchema.pre('save', async function(next) {
 
   if (this.taxType === 'IGST') {
 
-    if (this.isNew) {
-      this.igstPercentage = settings.igstPercentage;
-    }
-    this.igstPercentage = Number(this.igstPercentage) || 0;
+    this.igstPercentage = settings.igstPercentage;
 
     this.igstAmount = Number(
       ((this.amountAfterDiscount * this.igstPercentage) / 100).toFixed(2)
@@ -282,12 +254,8 @@ BillSchema.pre('save', async function(next) {
 
   if (this.taxType === 'JOBCGST_JOBSGST') {
 
-    if (this.isNew) {
-      this.jobCgstPercentage = settings.jobCgstPercentage;
-      this.jobSgstPercentage = settings.jobSgstPercentage;
-    }
-    this.jobCgstPercentage = Number(this.jobCgstPercentage) || 0;
-    this.jobSgstPercentage = Number(this.jobSgstPercentage) || 0;
+    this.jobCgstPercentage = settings.jobCgstPercentage;
+    this.jobSgstPercentage = settings.jobSgstPercentage;
 
     this.jobCgstAmount = Number(
       ((this.amountAfterDiscount * this.jobCgstPercentage) / 100).toFixed(2)

@@ -22,8 +22,6 @@ import creditNoteRoutes from './routes/creditNoteRoutes.js';
 import debitNoteRoutes from './routes/debitNoteRoutes.js';
 import interestNoteRoutes from './routes/interestNoteRoutes.js';
 import gstRoutes from './routes/gstRoutes.js';
-import organizationRoutes from './routes/organizationRoutes.js';
-import { companyContext } from './middleware/companyContext.js';
 
 dotenv.config();
 connectDB();
@@ -33,7 +31,7 @@ const app = express();
 app.use(cors({
   origin: '*',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
@@ -45,24 +43,23 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
-app.use('/api/organizations', organizationRoutes);
-app.use('/api/companies', companyContext, companyRoutes);
-app.use('/api/settings', companyContext, settingsRoutes);
-app.use('/api/bills', companyContext, billRoutes);
-app.use('/api/workers', companyContext, workerRoutes);
-app.use('/api/attendance', companyContext, attendanceRoutes);
-app.use('/api/purchases', companyContext, purchaseRoutes);
-app.use('/api/transactions', companyContext, transactionRoutes);
-app.use('/api/dashboard', companyContext, dashboardRoutes);
-app.use('/api/reports', companyContext, reportRoutes);
-app.use('/api/logs', companyContext, logRoutes);
-app.use('/api/challans', companyContext, challanRoutes);
-app.use('/api/company-ledger', companyContext, companyLedgerRoutes);
-app.use('/api/boxes', companyContext, boxRoutes);
-app.use('/api/credit-notes', companyContext, creditNoteRoutes);
-app.use('/api/debit-notes', companyContext, debitNoteRoutes);
-app.use('/api/interest-notes', companyContext, interestNoteRoutes);
-app.use('/api/gst', companyContext, gstRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/bills', billRoutes);
+app.use('/api/workers', workerRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/purchases', purchaseRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/logs', logRoutes);
+app.use('/api/challans', challanRoutes);
+app.use('/api/company-ledger', companyLedgerRoutes);
+app.use('/api/boxes', boxRoutes);
+app.use('/api/credit-notes', creditNoteRoutes);
+app.use('/api/debit-notes', debitNoteRoutes);
+app.use('/api/interest-notes', interestNoteRoutes);
+app.use('/api/gst', gstRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
